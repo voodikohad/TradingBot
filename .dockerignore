@@ -3,7 +3,6 @@ npm-debug.log
 .env
 .git
 .gitignore
-logs
 ui
 tests
 *.md

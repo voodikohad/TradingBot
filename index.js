@@ -11,6 +11,8 @@
 
 const express = require('express');
 const bodyParser = require('body-parser');
+const fs = require('fs');
+const path = require('path');
 const env = require('./src/utils/env');
 const logger = require('./src/utils/logger');
 const validator = require('./src/utils/validator');
@@ -22,8 +24,11 @@ const tpHandler = require('./src/handlers/tpHandler');
 
 const app = express();
 
-// In-memory data store for UI
-const dataStore = {
+// Persistent data file
+const DATA_FILE = path.join(__dirname, 'logs', 'signals-data.json');
+
+// Load or initialize data store
+let dataStore = {
   signals: [],
   stats: {
     totalSignals: 0,
@@ -32,6 +37,50 @@ const dataStore = {
     errors24h: 0
   }
 };
+
+// Load existing data from file
+function loadData() {
+  try {
+    if (fs.existsSync(DATA_FILE)) {
+      const fileData = fs.readFileSync(DATA_FILE, 'utf8');
+      const loaded = JSON.parse(fileData);
+      dataStore = loaded;
+      
+      // Clean old signals (keep last 7 days)
+      const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+      dataStore.signals = dataStore.signals.filter(s => {
+        const signalTime = new Date(s.timestamp).getTime();
+        return signalTime > sevenDaysAgo;
+      });
+      
+      logger.info('📊 Loaded data from disk', {
+        signals: dataStore.signals.length,
+        totalSignals: dataStore.stats.totalSignals
+      });
+    }
+  } catch (error) {
+    logger.warn('Could not load data file, starting fresh', { error: error.message });
+  }
+}
+
+// Save data to file
+function saveData() {
+  try {
+    const dir = path.dirname(DATA_FILE);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(DATA_FILE, JSON.stringify(dataStore, null, 2), 'utf8');
+  } catch (error) {
+    logger.error('Failed to save data', { error: error.message });
+  }
+}
+
+// Load data on startup
+loadData();
+
+// Auto-save every 5 minutes
+setInterval(saveData, 5 * 60 * 1000);
 
 // Middleware
 app.use(bodyParser.json({ limit: '10mb' }));
@@ -269,6 +318,9 @@ app.post('/webhook', async (req, res) => {
     if (today === signalDate) {
       dataStore.stats.todaySignals++;
     }
+    
+    // Save to disk immediately after new signal
+    saveData();
 
     logger.info('✅ WEBHOOK PROCESSED SUCCESSFULLY', {
       action: handlerResult.action,
