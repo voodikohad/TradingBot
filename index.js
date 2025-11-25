@@ -372,12 +372,14 @@ const server = app.listen(PORT, HOST, () => {
     health: `/health`
   });
 
-  // Test Telegram connection on startup
-  telegramService.testConnection().catch(err => {
-    logger.error('⚠️  Warning: Could not connect to Telegram Bot API on startup', {
-      error: err.message
+  // Test Telegram connection on startup (non-blocking, optional)
+  setTimeout(() => {
+    telegramService.testConnection().catch(err => {
+      logger.warn('⚠️  Telegram connection test failed (this is non-critical)', {
+        error: err.message
+      });
     });
-  });
+  }, 2000); // Delay 2 seconds after server starts
 });
 
 // Graceful shutdown

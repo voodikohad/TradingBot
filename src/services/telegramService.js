@@ -12,7 +12,7 @@ class TelegramService {
     this.botToken = env.TELEGRAM_BOT_TOKEN;
     this.chatId = env.TELEGRAM_CHAT_ID;
     this.apiUrl = `https://api.telegram.org/bot${this.botToken}`;
-    this.timeout = 10000; // 10 seconds
+    this.timeout = 30000; // 30 seconds (increased for cloud deployment)
   }
 
   /**
