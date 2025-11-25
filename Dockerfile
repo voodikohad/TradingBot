@@ -5,18 +5,22 @@ FROM node:18-alpine
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY package.json package-lock.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Install dependencies (production only)
+RUN npm install --production
 
-# Copy application files
-COPY . .
+# Copy application source
+COPY index.js ./
+COPY src ./src
 
-# Expose port
+# Create logs directory
+RUN mkdir -p logs
+
+# Expose port (Railway/Render use PORT env var)
 EXPOSE 3000
 
-# Set environment to production
+# Set environment
 ENV NODE_ENV=production
 
 # Start the application
