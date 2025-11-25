@@ -1,0 +1,8 @@
+{
+  "action": "entry",
+  "side": "long",
+  "symbol": "BTCUSDT",
+  "size_type": "percent",
+  "size": 1.0,
+  "tag": "SFP_SL"
+}

@@ -1,0 +1,8 @@
+{
+  "action": "entry",
+  "side": "short",
+  "symbol": "ETHUSDT",
+  "size_type": "usd",
+  "size": 100,
+  "tag": "SCALP"
+}

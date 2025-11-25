@@ -1,0 +1,1 @@
+/entry BTCUSDT long 1% #SFP_SL
