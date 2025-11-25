@@ -1,45 +1,29 @@
 # Dependencies
 node_modules/
 package-lock.json
-yarn.lock
 
 # Environment variables
 .env
-.env.local
-.env.production.local
 
 # Logs
 logs/
 *.log
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
 
-# OS
+# OS files
 .DS_Store
 Thumbs.db
-*.swp
-*.swo
-*~
 
 # IDE
 .vscode/
 .idea/
-*.sublime-project
-*.sublime-workspace
-.project
-.classpath
-*.code-workspace
+*.swp
+*.swo
+*~
 
-# Runtime
-dist/
-build/
-tmp/
-temp/
+# Test files
+coverage/
 
-# PM2
-ecosystem.config.js
-
-# Local testing
-.local
-test-results/
+# UI build
+ui/dist/
+ui/node_modules/
