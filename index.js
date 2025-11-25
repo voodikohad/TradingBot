@@ -361,12 +361,15 @@ app.use((req, res) => {
 
 // Start Server
 const PORT = env.PORT;
-const server = app.listen(PORT, () => {
+const HOST = '0.0.0.0'; // Bind to all interfaces for Docker/Cloud deployments
+
+const server = app.listen(PORT, HOST, () => {
   logger.info('🚀 SERVER STARTED', {
     port: PORT,
+    host: HOST,
     environment: env.NODE_ENV,
-    webhook: `http://localhost:${PORT}/webhook`,
-    health: `http://localhost:${PORT}/health`
+    webhook: `/webhook`,
+    health: `/health`
   });
 
   // Test Telegram connection on startup
