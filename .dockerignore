@@ -3,8 +3,11 @@ npm-debug.log
 .env
 .git
 .gitignore
-README.md
 logs
 ui
 tests
 *.md
+.vscode
+.DS_Store
+Dockerfile
+.dockerignore
