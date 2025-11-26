@@ -146,6 +146,79 @@ app.get('/health', async (req, res) => {
 });
 
 /**
+ * Network Diagnostics
+ * GET /test-network
+ * Test DNS and network connectivity to Telegram
+ */
+app.get('/test-network', async (req, res) => {
+  const dns = require('dns').promises;
+  const axios = require('axios');
+  const results = {};
+  
+  // Test DNS resolution
+  try {
+    const addresses = await dns.resolve4('api.telegram.org');
+    results.dns = {
+      success: true,
+      addresses: addresses,
+      message: 'DNS resolution successful'
+    };
+  } catch (error) {
+    results.dns = {
+      success: false,
+      error: error.message,
+      code: error.code
+    };
+  }
+  
+  // Test HTTP connectivity
+  try {
+    const start = Date.now();
+    const response = await axios.get('https://api.telegram.org', {
+      timeout: 10000,
+      validateStatus: () => true // Accept any status
+    });
+    results.http = {
+      success: true,
+      status: response.status,
+      duration: `${Date.now() - start}ms`
+    };
+  } catch (error) {
+    results.http = {
+      success: false,
+      error: error.message,
+      code: error.code
+    };
+  }
+  
+  // Test bot API
+  try {
+    const start = Date.now();
+    const response = await axios.get(
+      `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/getMe`,
+      { timeout: 10000 }
+    );
+    results.telegram = {
+      success: true,
+      duration: `${Date.now() - start}ms`,
+      bot: response.data.result?.username
+    };
+  } catch (error) {
+    results.telegram = {
+      success: false,
+      error: error.message,
+      code: error.code
+    };
+  }
+  
+  res.json({
+    timestamp: new Date().toISOString(),
+    platform: process.env.RAILWAY_ENVIRONMENT || 'unknown',
+    results: results
+  });
+});
+
+/**
  * Test Telegram Connection
  * GET /test-telegram-connection
  * Manually test Telegram bot connection
