@@ -1,0 +1,494 @@
+═══════════════════════════════════════════════════════════════════════════════
+                    TRADINGVIEW → TELEGRAM BOT SETUP GUIDE
+                         Complete Client Instructions
+═══════════════════════════════════════════════════════════════════════════════
+
+📌 WHAT YOU HAVE ACCESS TO:
+
+✅ Backend Server: https://strange-dyanne-tradingbot12-29686213.koyeb.app
+✅ Live Dashboard: https://trading-bot-mocha-eight.vercel.app
+✅ Automated Cornix commands sent to your Telegram channel
+✅ Real-time signal tracking and statistics
+
+═══════════════════════════════════════════════════════════════════════════════
+                          🚀 QUICK START GUIDE
+═══════════════════════════════════════════════════════════════════════════════
+
+STEP 1: OPEN TRADINGVIEW
+-------------------------
+1. Go to https://www.tradingview.com
+2. Open any chart (e.g., BTCUSDT, ETHUSDT, etc.)
+3. Set up your trading strategy/indicator
+
+
+STEP 2: CREATE AN ALERT
+-------------------------
+1. Click the ALERT button (⏰ clock icon) or press Alt + A
+2. Configure your alert conditions:
+   - Choose indicator/price level
+   - Set trigger conditions
+   - Name your alert (e.g., "BTC Long Entry")
+
+
+STEP 3: CONFIGURE WEBHOOK
+-------------------------
+1. In alert settings, scroll to "Notifications" section
+2. ✅ Check "Webhook URL"
+3. Paste this EXACT URL:
+
+https://strange-dyanne-tradingbot12-29686213.koyeb.app/webhook?token=mkhxwyytbsbmizlwpfsaptlftlxkhqomryxibpedmeefstveaelpacftgmkiehunsjyydswasjjsioixbwnrlmoezfjkebqmszyntrozzhpzzveaqpxtviqtsaludeyb
+
+⚠️ IMPORTANT: Copy the ENTIRE URL including the "?token=..." part!
+
+
+STEP 4: SET MESSAGE FORMAT
+-------------------------
+In the "Message" field, paste ONE of these JSON templates:
+
+═══════════════════════════════════════════════════════════════════════════════
+                        📋 MESSAGE TEMPLATES (COPY & PASTE)
+═══════════════════════════════════════════════════════════════════════════════
+
+🟢 LONG ENTRY SIGNAL
+--------------------
+{
+  "action": "entry",
+  "side": "long",
+  "symbol": "{{ticker}}",
+  "size_type": "percent",
+  "size": 1.0,
+  "tag": "LONG_ENTRY"
+}
+
+
+🔴 SHORT ENTRY SIGNAL
+---------------------
+{
+  "action": "entry",
+  "side": "short",
+  "symbol": "{{ticker}}",
+  "size_type": "percent",
+  "size": 1.0,
+  "tag": "SHORT_ENTRY"
+}
+
+
+🛑 STOP LOSS
+------------
+{
+  "action": "sl",
+  "side": "long",
+  "symbol": "{{ticker}}",
+  "size_type": "percent",
+  "size": 100,
+  "tag": "STOP_LOSS"
+}
+
+
+🎯 TAKE PROFIT
+--------------
+{
+  "action": "tp",
+  "side": "long",
+  "symbol": "{{ticker}}",
+  "size_type": "percent",
+  "size": 50,
+  "tag": "TAKE_PROFIT"
+}
+
+
+🚪 EXIT POSITION
+----------------
+{
+  "action": "exit",
+  "side": "long",
+  "symbol": "{{ticker}}",
+  "size_type": "percent",
+  "size": 100,
+  "tag": "EXIT_ALL"
+}
+
+
+═══════════════════════════════════════════════════════════════════════════════
+                        ⚙️ FIELD EXPLANATIONS
+═══════════════════════════════════════════════════════════════════════════════
+
+"action"     → Type of signal: entry, sl, tp, or exit
+"side"       → Position direction: long or short
+"symbol"     → Trading pair: use {{ticker}} for automatic symbol from chart
+"size_type"  → How to calculate size: "percent" or "usd"
+"size"       → Amount: 1.0 = 1% of balance, or fixed USD amount
+"tag"        → Custom label for tracking (optional, change as needed)
+
+
+═══════════════════════════════════════════════════════════════════════════════
+                        💡 TRADINGVIEW VARIABLES
+═══════════════════════════════════════════════════════════════════════════════
+
+You can use these dynamic variables in your messages:
+
+{{ticker}}   → Symbol being traded (e.g., BTCUSDT)
+{{close}}    → Current close price
+{{volume}}   → Current volume
+{{time}}     → Alert timestamp
+{{interval}} → Chart timeframe (15, 1H, 1D, etc.)
+
+Example with price:
+{
+  "action": "entry",
+  "side": "long",
+  "symbol": "{{ticker}}",
+  "size_type": "percent",
+  "size": 1.0,
+  "tag": "Entry at {{close}}"
+}
+
+
+═══════════════════════════════════════════════════════════════════════════════
+                        📊 POSITION SIZING GUIDE
+═══════════════════════════════════════════════════════════════════════════════
+
+PERCENT-BASED (RECOMMENDED):
+-----------------------------
+"size_type": "percent"
+"size": 1.0              → Trades 1% of your balance
+"size": 2.5              → Trades 2.5% of your balance
+"size": 0.5              → Trades 0.5% of your balance
+
+✅ Automatically scales with your account
+✅ Better risk management
+✅ Recommended for most traders
+
+
+USD-BASED:
+----------
+"size_type": "usd"
+"size": 100              → Trades exactly $100 worth
+"size": 50               → Trades exactly $50 worth
+"size": 250              → Trades exactly $250 worth
+
+⚠️ Fixed dollar amount
+⚠️ Doesn't scale with account size
+
+
+═══════════════════════════════════════════════════════════════════════════════
+                        ✅ WHAT HAPPENS AFTER ALERT TRIGGERS
+═══════════════════════════════════════════════════════════════════════════════
+
+1. TradingView sends webhook to our server
+2. Server validates and processes your signal
+3. Cornix command is formatted automatically
+4. Message is sent to your Telegram channel
+5. Signal appears in live dashboard
+6. Data is saved permanently
+
+
+EXAMPLE TELEGRAM MESSAGE:
+--------------------------
+🟢 BTCUSDT LONG 1.00%
+
+b BTCUSDT Entry
+Long
+R:R= 1:2
+Leverage: Isolated 10x
+Entry Zone: 50000 - 50100
+
+Take-Profit Targets:
+1) 51000
+2) 52000
+3) 53000
+
+⛔️ StopLoss: 49000
+
+
+═══════════════════════════════════════════════════════════════════════════════
+                        🧪 TESTING YOUR SETUP
+═══════════════════════════════════════════════════════════════════════════════
+
+OPTION 1: TEST IN TRADINGVIEW
+------------------------------
+1. Create a simple price alert (e.g., "BTC > 40000")
+2. Use this test message:
+
+{
+  "action": "entry",
+  "side": "long",
+  "symbol": "BTCUSDT",
+  "size_type": "percent",
+  "size": 0.1,
+  "tag": "TEST_SIGNAL"
+}
+
+3. Set condition to trigger immediately
+4. Check Telegram for message
+5. Check dashboard: https://trading-bot-mocha-eight.vercel.app
+
+
+OPTION 2: TEST WITH POSTMAN (ADVANCED)
+---------------------------------------
+1. Download Postman (https://www.postman.com/downloads/)
+2. Create new POST request
+3. URL: https://strange-dyanne-tradingbot12-29686213.koyeb.app/webhook?token=mkhxwyytbsbmizlwpfsaptlftlxkhqomryxibpedmeefstveaelpacftgmkiehunsjyydswasjjsioixbwnrlmoezfjkebqmszyntrozzhpzzveaqpxtviqtsaludeyb
+4. Headers: Content-Type = application/json
+5. Body (raw JSON):
+{
+  "action": "entry",
+  "side": "long",
+  "symbol": "BTCUSDT",
+  "size_type": "percent",
+  "size": 1.0,
+  "tag": "POSTMAN_TEST"
+}
+6. Click Send
+7. Check Telegram and dashboard
+
+
+═══════════════════════════════════════════════════════════════════════════════
+                        📱 ACCESSING YOUR DASHBOARD
+═══════════════════════════════════════════════════════════════════════════════
+
+Dashboard URL: https://trading-bot-mocha-eight.vercel.app
+
+FEATURES:
+---------
+✅ Real-time signal feed
+✅ Total signals count
+✅ Today's signals
+✅ Success rate tracking
+✅ System status (Server, Telegram, Webhook)
+✅ Recent logs and activity
+✅ Signal history (last 100 signals)
+✅ Data persists even if server restarts
+
+
+═══════════════════════════════════════════════════════════════════════════════
+                        🔐 SECURITY & BEST PRACTICES
+═══════════════════════════════════════════════════════════════════════════════
+
+1. ⚠️ NEVER SHARE your webhook URL with anyone - it contains your secret token
+2. ✅ Always use HTTPS (already configured)
+3. ✅ Test with small position sizes first (size: 0.1 or 0.5)
+4. ✅ Monitor your dashboard regularly
+5. ✅ Keep alert names simple and descriptive
+6. ✅ Use the "tag" field to identify different strategies
+7. ✅ Start with "percent" size type for better risk management
+
+
+═══════════════════════════════════════════════════════════════════════════════
+                        🎯 REAL-WORLD EXAMPLES
+═══════════════════════════════════════════════════════════════════════════════
+
+EXAMPLE 1: RSI OVERSOLD ENTRY
+------------------------------
+Alert Condition: RSI(14) < 30
+Message:
+{
+  "action": "entry",
+  "side": "long",
+  "symbol": "{{ticker}}",
+  "size_type": "percent",
+  "size": 2.0,
+  "tag": "RSI_OVERSOLD_{{interval}}"
+}
+
+
+EXAMPLE 2: MOVING AVERAGE CROSSOVER
+------------------------------------
+Alert Condition: MA(9) crosses above MA(21)
+Message:
+{
+  "action": "entry",
+  "side": "long",
+  "symbol": "{{ticker}}",
+  "size_type": "percent",
+  "size": 1.5,
+  "tag": "MA_CROSS_LONG"
+}
+
+
+EXAMPLE 3: STOP LOSS AT 2%
+---------------------------
+Alert Condition: Price drops 2% below entry
+Message:
+{
+  "action": "sl",
+  "side": "long",
+  "symbol": "{{ticker}}",
+  "size_type": "percent",
+  "size": 100,
+  "tag": "2%_STOPLOSS"
+}
+
+
+EXAMPLE 4: TAKE PROFIT AT 5%
+-----------------------------
+Alert Condition: Price rises 5% above entry
+Message:
+{
+  "action": "tp",
+  "side": "long",
+  "symbol": "{{ticker}}",
+  "size_type": "percent",
+  "size": 50,
+  "tag": "5%_TP"
+}
+
+
+═══════════════════════════════════════════════════════════════════════════════
+                        🚨 TROUBLESHOOTING
+═══════════════════════════════════════════════════════════════════════════════
+
+PROBLEM: Alert triggers but no Telegram message
+SOLUTION:
+→ Check webhook URL is correct and complete (including ?token=...)
+→ Verify JSON format is valid (use https://jsonlint.com)
+→ Check Telegram channel is set up correctly
+→ Look at dashboard for error messages
+
+
+PROBLEM: "Invalid webhook data" error
+SOLUTION:
+→ Check JSON syntax (missing comma, bracket, quote)
+→ Ensure all required fields are present: action, side, symbol, size_type, size
+→ Verify values are correct (action must be: entry, sl, tp, or exit)
+
+
+PROBLEM: Dashboard not showing signals
+SOLUTION:
+→ Refresh the page
+→ Check browser console for errors (F12)
+→ Verify backend is running: https://strange-dyanne-tradingbot12-29686213.koyeb.app/health
+
+
+PROBLEM: Alert not triggering
+SOLUTION:
+→ Check alert is active (not expired)
+→ Verify condition is met
+→ Check "Once Per Bar Close" vs "Once Per Bar" setting
+
+
+═══════════════════════════════════════════════════════════════════════════════
+                        📞 SYSTEM STATUS & MONITORING
+═══════════════════════════════════════════════════════════════════════════════
+
+Check System Health:
+https://strange-dyanne-tradingbot12-29686213.koyeb.app/health
+
+Expected Response:
+{
+  "status": "healthy",
+  "telegram": "connected",
+  "timestamp": "2025-11-26T..."
+}
+
+
+Check Server Status:
+https://strange-dyanne-tradingbot12-29686213.koyeb.app/
+
+Expected Response:
+{
+  "status": "ok",
+  "service": "TradingView-Telegram-Cornix Bot",
+  "version": "1.0.0"
+}
+
+
+═══════════════════════════════════════════════════════════════════════════════
+                        📝 QUICK REFERENCE CHECKLIST
+═══════════════════════════════════════════════════════════════════════════════
+
+BEFORE CREATING ALERTS:
+□ Have webhook URL ready
+□ Know which signal type you need (entry, sl, tp, exit)
+□ Decide position size (start small: 0.1% - 1%)
+□ Test with one alert first
+
+WHEN CREATING ALERT:
+□ Set alert condition correctly
+□ Enable "Webhook URL"
+□ Paste complete webhook URL (with ?token=...)
+□ Copy correct JSON message template
+□ Customize "tag" field if needed
+□ Test alert triggers correctly
+
+AFTER ALERT IS ACTIVE:
+□ Check Telegram for first message
+□ Verify signal appears in dashboard
+□ Monitor performance
+□ Adjust position sizes as needed
+
+
+═══════════════════════════════════════════════════════════════════════════════
+                        🎓 TIPS FOR SUCCESS
+═══════════════════════════════════════════════════════════════════════════════
+
+1. START SMALL: Begin with 0.1% or 0.5% position sizes
+2. TEST FIRST: Create one test alert before going live
+3. USE TAGS: Label different strategies with unique tags
+4. MONITOR REGULARLY: Check dashboard daily
+5. ONE ALERT = ONE ACTION: Don't combine entry + SL in same alert
+6. USE {{ticker}}: Let TradingView fill in the symbol automatically
+7. KEEP IT SIMPLE: Start with basic entry signals, add complexity later
+8. DOCUMENT YOUR STRATEGY: Keep notes on what each alert does
+
+
+═══════════════════════════════════════════════════════════════════════════════
+                        📊 DASHBOARD FEATURES
+═══════════════════════════════════════════════════════════════════════════════
+
+SIGNALS PAGE:
+→ Live feed of all trading signals
+→ Symbol, side, action, size, timestamp
+→ Cornix command preview
+→ Status indicator (sent/failed)
+
+STATISTICS:
+→ Total signals processed
+→ Today's signal count
+→ Success rate
+→ Errors in last 24 hours
+
+SYSTEM STATUS:
+→ Server status (online/offline)
+→ Telegram connection (online/offline/unknown)
+→ Webhook endpoint status
+
+LOGS:
+→ Recent system activity
+→ Error messages
+→ Processing times
+
+
+═══════════════════════════════════════════════════════════════════════════════
+                        🔗 IMPORTANT LINKS
+═══════════════════════════════════════════════════════════════════════════════
+
+Webhook URL (for TradingView):
+https://strange-dyanne-tradingbot12-29686213.koyeb.app/webhook?token=mkhxwyytbsbmizlwpfsaptlftlxkhqomryxibpedmeefstveaelpacftgmkiehunsjyydswasjjsioixbwnrlmoezfjkebqmszyntrozzhpzzveaqpxtviqtsaludeyb
+
+Dashboard:
+https://trading-bot-mocha-eight.vercel.app
+
+Health Check:
+https://strange-dyanne-tradingbot12-29686213.koyeb.app/health
+
+JSON Validator:
+https://jsonlint.com
+
+
+═══════════════════════════════════════════════════════════════════════════════
+                        ✨ YOU'RE ALL SET!
+═══════════════════════════════════════════════════════════════════════════════
+
+Your TradingView to Telegram bot is ready to use!
+
+→ Create your first alert in TradingView
+→ Use the webhook URL and JSON templates above
+→ Watch for Cornix messages in Telegram
+→ Monitor signals in your dashboard
+
+The system runs 24/7 and automatically processes all your alerts.
+
+Happy Trading! 🚀📈
+
+═══════════════════════════════════════════════════════════════════════════════
