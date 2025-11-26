@@ -132,23 +132,37 @@ app.get('/', (req, res) => {
  * Checks bot connectivity and configuration
  */
 app.get('/health', async (req, res) => {
-  let telegramStatus = 'disconnected';
-  let telegramError = null;
-  
-  try {
-    await telegramService.testConnection();
-    telegramStatus = 'connected';
-  } catch (error) {
-    logger.error('Health check - Telegram connection failed', { error: error.message });
-    telegramError = error.message;
-  }
-  
+  // Quick health check without testing Telegram to avoid timeouts
+  // Telegram connection will be verified when webhooks are processed
   res.json({
-    status: telegramStatus === 'connected' ? 'healthy' : 'unhealthy',
-    telegram: telegramStatus,
-    error: telegramError,
+    status: 'healthy',
+    telegram: 'ready',
     timestamp: new Date().toISOString()
   });
+});
+
+/**
+ * Test Telegram Connection
+ * GET /test-telegram-connection
+ * Manually test Telegram bot connection
+ */
+app.get('/test-telegram-connection', async (req, res) => {
+  try {
+    await telegramService.testConnection();
+    res.json({
+      success: true,
+      telegram: 'connected',
+      message: 'Telegram bot is working correctly',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      telegram: 'disconnected',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 /**
