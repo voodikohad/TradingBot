@@ -7,6 +7,7 @@
  * - TradingView JSON parsing and validation
  * - Cornix command formatting
  * - Telegram bot integration for auto-trading
+ * - Real-time bot connection status monitoring
  */
 
 const express = require('express');
