@@ -12,7 +12,16 @@ class TelegramService {
     this.botToken = env.TELEGRAM_BOT_TOKEN;
     this.chatId = env.TELEGRAM_CHAT_ID;
     this.apiUrl = `https://api.telegram.org/bot${this.botToken}`;
-    this.timeout = 30000; // 30 seconds (increased for cloud deployment)
+    this.timeout = 60000; // 60 seconds for cloud platforms with slow networks
+    
+    // Configure axios defaults for cloud environments
+    this.axiosConfig = {
+      timeout: this.timeout,
+      httpsAgent: new (require('https')).Agent({
+        keepAlive: true,
+        rejectUnauthorized: false // Some cloud platforms need this
+      })
+    };
   }
 
   /**
@@ -34,9 +43,7 @@ class TelegramService {
           text: message,
           parse_mode: 'Markdown' // Enable Markdown formatting
         },
-        {
-          timeout: this.timeout
-        }
+        this.axiosConfig
       );
 
       logger.info('✉️ Telegram message sent successfully', {
@@ -113,7 +120,7 @@ ${cornixCommand}
     try {
       const response = await axios.get(
         `${this.apiUrl}/getMe`,
-        { timeout: this.timeout }
+        this.axiosConfig
       );
 
       logger.info('✅ Telegram bot connection successful', {
@@ -124,7 +131,9 @@ ${cornixCommand}
       return true;
     } catch (error) {
       logger.error('❌ Telegram bot connection failed', {
-        error: error.message
+        error: error.message,
+        code: error.code,
+        response: error.response?.data
       });
 
       throw error;

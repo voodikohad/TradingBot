@@ -445,30 +445,55 @@ const server = app.listen(PORT, HOST, async () => {
     health: `/health`
   });
 
-  // Test Telegram connection on startup
-  try {
-    const axios = require('axios');
-    const response = await axios.get(
-      `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/getMe`,
-      { timeout: 10000 }
-    );
-    
-    if (response.data && response.data.ok) {
-      botInfo = response.data.result;
-      telegramConnected = true;
-      logger.info('✅ TELEGRAM BOT CONNECTED', {
-        botName: botInfo.username,
-        botId: botInfo.id,
-        firstName: botInfo.first_name
-      });
+  // Test Telegram connection on startup (non-blocking with retry)
+  const testTelegramConnection = async (retries = 3) => {
+    for (let i = 0; i < retries; i++) {
+      try {
+        const axios = require('axios');
+        const response = await axios.get(
+          `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/getMe`,
+          { 
+            timeout: 30000, // 30 seconds for cloud platforms
+            httpsAgent: new (require('https')).Agent({
+              keepAlive: true,
+              rejectUnauthorized: false // Some cloud platforms need this
+            })
+          }
+        );
+        
+        if (response.data && response.data.ok) {
+          botInfo = response.data.result;
+          telegramConnected = true;
+          logger.info('✅ TELEGRAM BOT CONNECTED', {
+            botName: botInfo.username,
+            botId: botInfo.id,
+            firstName: botInfo.first_name,
+            attempt: i + 1
+          });
+          return true;
+        }
+      } catch (error) {
+        telegramConnected = false;
+        logger.warn(`⚠️ Telegram connection attempt ${i + 1}/${retries} failed`, {
+          error: error.message,
+          botToken: env.TELEGRAM_BOT_TOKEN ? 'Present (Hidden)' : 'Missing'
+        });
+        
+        if (i < retries - 1) {
+          // Wait before retry (exponential backoff)
+          await new Promise(resolve => setTimeout(resolve, (i + 1) * 2000));
+        }
+      }
     }
-  } catch (error) {
-    telegramConnected = false;
-    logger.error('❌ TELEGRAM BOT CONNECTION FAILED', {
-      error: error.message,
-      botToken: env.TELEGRAM_BOT_TOKEN ? 'Present (Hidden)' : 'Missing'
-    });
-  }
+    
+    logger.error('❌ TELEGRAM BOT CONNECTION FAILED after all retries');
+    return false;
+  };
+  
+  // Run connection test in background (don't block server startup)
+  testTelegramConnection().catch(err => {
+    logger.error('Telegram connection test error', { error: err.message });
+  });
   
   // Keep-alive: Self-ping every 5 minutes to prevent Koyeb from stopping instance
   if (env.NODE_ENV === 'production') {
