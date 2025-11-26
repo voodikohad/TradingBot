@@ -1,6 +1,6 @@
 # 🎨 TradingBot UI - Professional Dashboard
 
-A modern, fully responsive, production-ready UI for the TradingView → Telegram → Cornix automation bot.
+A modern, fully responsive, production-ready UI for the TradingView → Telegram → Cornix automation bot with real-time monitoring.
 
 ## ✨ Features
 
