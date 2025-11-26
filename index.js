@@ -82,6 +82,33 @@ loadData();
 // Auto-save every 5 minutes
 setInterval(saveData, 5 * 60 * 1000);
 
+// Cache for Telegram status (to avoid spamming API)
+let telegramStatusCache = {
+  status: 'unknown',
+  lastCheck: 0,
+  cacheDuration: 60000 // 1 minute cache
+};
+
+async function getTelegramStatus() {
+  const now = Date.now();
+  
+  // Return cached status if still valid
+  if (now - telegramStatusCache.lastCheck < telegramStatusCache.cacheDuration) {
+    return telegramStatusCache.status;
+  }
+  
+  // Check Telegram status
+  try {
+    await telegramService.testConnection();
+    telegramStatusCache.status = 'online';
+  } catch (error) {
+    telegramStatusCache.status = 'offline';
+  }
+  
+  telegramStatusCache.lastCheck = now;
+  return telegramStatusCache.status;
+}
+
 // Middleware
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));
@@ -194,13 +221,7 @@ app.get('/api/logs', (req, res) => {
  * Returns system status information
  */
 app.get('/api/status', async (req, res) => {
-  let telegramStatus = 'connecting';
-  try {
-    await telegramService.testConnection();
-    telegramStatus = 'online';
-  } catch (error) {
-    telegramStatus = 'offline';
-  }
+  const telegramStatus = await getTelegramStatus();
 
   res.json({
     success: true,
@@ -424,14 +445,8 @@ const server = app.listen(PORT, HOST, () => {
     health: `/health`
   });
 
-  // Test Telegram connection on startup (non-blocking, optional)
-  setTimeout(() => {
-    telegramService.testConnection().catch(err => {
-      logger.warn('⚠️  Telegram connection test failed (this is non-critical)', {
-        error: err.message
-      });
-    });
-  }, 2000); // Delay 2 seconds after server starts
+  // Don't test Telegram on startup to avoid timeouts
+  // Connection will be tested when first webhook arrives or status is checked
 });
 
 // Graceful shutdown
