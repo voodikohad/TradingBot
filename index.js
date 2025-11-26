@@ -431,6 +431,18 @@ const server = app.listen(PORT, HOST, () => {
 
   // Don't test Telegram on startup to avoid timeouts
   // Connection will be tested when first webhook arrives or status is checked
+  
+  // Keep-alive: Self-ping every 5 minutes to prevent Koyeb from stopping instance
+  if (env.NODE_ENV === 'production') {
+    setInterval(() => {
+      const https = require('https');
+      https.get('https://strange-dyanne-tradingbot12-29686213.koyeb.app/health', (res) => {
+        logger.info('Keep-alive ping successful');
+      }).on('error', (e) => {
+        logger.warn('Keep-alive ping failed', { error: e.message });
+      });
+    }, 5 * 60 * 1000); // Every 5 minutes
+  }
 });
 
 // Graceful shutdown
