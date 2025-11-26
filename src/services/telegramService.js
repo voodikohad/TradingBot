@@ -150,6 +150,8 @@ class TelegramService {
     const timestamp = new Date().toLocaleString();
 
     const message = `
+${cornixCommand}
+
 🚀 *TRADE SIGNAL EXECUTED*
 ═══════════════════════════
 *Symbol:* \`${data.symbol}\`
@@ -157,11 +159,6 @@ class TelegramService {
 *Side:* \`${data.side.toUpperCase()}\`
 *Size:* \`${data.size}${data.size_type === 'percent' ? '%' : 'USD'}\`
 ${data.tag ? `*Tag:* \`${data.tag}\`` : ''}
-═══════════════════════════
-*Cornix Command:*
-\`\`\`
-${cornixCommand}
-\`\`\`
 *Timestamp:* ${timestamp}
     `.trim();
 

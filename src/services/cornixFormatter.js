@@ -20,10 +20,10 @@ class CornixFormatter {
         ? `${size}%` 
         : `${size}USD`;
 
-      // Build tag string (if exists)
-      const tagString = tag ? ` ${tag}` : '';
+      // Build tag string (if exists) - Cornix expects #TAG format
+      const tagString = tag ? ` #${tag.replace(/^#+/, '')}` : '';
 
-      // Format: /entry SYMBOL SIDE SIZE_WITH_UNIT TAG
+      // Format: /entry SYMBOL SIDE SIZE_WITH_UNIT #TAG
       const command = `/entry ${symbol} ${side} ${sizeString}${tagString}`;
 
       logger.debug('Cornix command formatted', {
