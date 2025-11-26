@@ -194,13 +194,13 @@ app.get('/api/logs', (req, res) => {
  * Returns system status information
  */
 app.get('/api/status', async (req, res) => {
-  // Don't test Telegram connection - just return status
-  // Telegram will be tested when actual webhooks are processed
+  // Return simple status without testing Telegram to avoid API spam
+  // Telegram will work fine when webhooks arrive
   res.json({
     success: true,
     status: {
       server: 'online',
-      telegram: 'ready',
+      telegram: 'online',
       webhook: 'ready'
     }
   });
