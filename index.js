@@ -82,33 +82,6 @@ loadData();
 // Auto-save every 5 minutes
 setInterval(saveData, 5 * 60 * 1000);
 
-// Cache for Telegram status (to avoid spamming API)
-let telegramStatusCache = {
-  status: 'unknown',
-  lastCheck: 0,
-  cacheDuration: 60000 // 1 minute cache
-};
-
-async function getTelegramStatus() {
-  const now = Date.now();
-  
-  // Return cached status if still valid
-  if (now - telegramStatusCache.lastCheck < telegramStatusCache.cacheDuration) {
-    return telegramStatusCache.status;
-  }
-  
-  // Check Telegram status
-  try {
-    await telegramService.testConnection();
-    telegramStatusCache.status = 'online';
-  } catch (error) {
-    telegramStatusCache.status = 'offline';
-  }
-  
-  telegramStatusCache.lastCheck = now;
-  return telegramStatusCache.status;
-}
-
 // Middleware
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));
@@ -221,13 +194,13 @@ app.get('/api/logs', (req, res) => {
  * Returns system status information
  */
 app.get('/api/status', async (req, res) => {
-  const telegramStatus = await getTelegramStatus();
-
+  // Don't test Telegram connection - just return status
+  // Telegram will be tested when actual webhooks are processed
   res.json({
     success: true,
     status: {
       server: 'online',
-      telegram: telegramStatus,
+      telegram: 'ready',
       webhook: 'ready'
     }
   });
