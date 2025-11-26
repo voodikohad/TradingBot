@@ -134,7 +134,12 @@ app.get('/', (req, res) => {
 app.get('/health', async (req, res) => {
   res.json({
     status: 'healthy',
-    telegram: 'connected',
+    telegram: telegramConnected ? 'connected' : 'disconnected',
+    botInfo: botInfo ? {
+      username: botInfo.username,
+      id: botInfo.id,
+      firstName: botInfo.first_name
+    } : null,
     timestamp: new Date().toISOString()
   });
 });
@@ -210,9 +215,15 @@ app.get('/api/status', async (req, res) => {
   res.json({
     success: true,
     status: {
-      server: 'connected',
-      telegram: 'connected',
-      webhook: 'ready'
+      server: 'online',
+      telegram: telegramConnected ? 'online' : 'offline',
+      webhook: 'ready',
+      cornix: telegramConnected ? 'online' : 'unknown',
+      botInfo: botInfo ? {
+        username: botInfo.username,
+        id: botInfo.id,
+        firstName: botInfo.first_name
+      } : null
     }
   });
 });
@@ -416,11 +427,15 @@ app.use((req, res) => {
   });
 });
 
+// Global variable to store bot info
+let botInfo = null;
+let telegramConnected = false;
+
 // Start Server
 const PORT = env.PORT;
 const HOST = '0.0.0.0'; // Bind to all interfaces for Docker/Cloud deployments
 
-const server = app.listen(PORT, HOST, () => {
+const server = app.listen(PORT, HOST, async () => {
   logger.info('🚀 SERVER STARTED', {
     port: PORT,
     host: HOST,
@@ -429,8 +444,30 @@ const server = app.listen(PORT, HOST, () => {
     health: `/health`
   });
 
-  // Don't test Telegram on startup to avoid timeouts
-  // Connection will be tested when first webhook arrives or status is checked
+  // Test Telegram connection on startup
+  try {
+    const axios = require('axios');
+    const response = await axios.get(
+      `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/getMe`,
+      { timeout: 10000 }
+    );
+    
+    if (response.data && response.data.ok) {
+      botInfo = response.data.result;
+      telegramConnected = true;
+      logger.info('✅ TELEGRAM BOT CONNECTED', {
+        botName: botInfo.username,
+        botId: botInfo.id,
+        firstName: botInfo.first_name
+      });
+    }
+  } catch (error) {
+    telegramConnected = false;
+    logger.error('❌ TELEGRAM BOT CONNECTION FAILED', {
+      error: error.message,
+      botToken: env.TELEGRAM_BOT_TOKEN ? 'Present (Hidden)' : 'Missing'
+    });
+  }
   
   // Keep-alive: Self-ping every 5 minutes to prevent Koyeb from stopping instance
   if (env.NODE_ENV === 'production') {
