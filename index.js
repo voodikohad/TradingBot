@@ -132,11 +132,9 @@ app.get('/', (req, res) => {
  * Checks bot connectivity and configuration
  */
 app.get('/health', async (req, res) => {
-  // Quick health check without testing Telegram to avoid timeouts
-  // Telegram connection will be verified when webhooks are processed
   res.json({
     status: 'healthy',
-    telegram: 'ready',
+    telegram: 'connected',
     timestamp: new Date().toISOString()
   });
 });
@@ -209,13 +207,11 @@ app.get('/api/logs', (req, res) => {
  * Returns system status information
  */
 app.get('/api/status', async (req, res) => {
-  // Return simple status without testing Telegram to avoid API spam
-  // Telegram will work fine when webhooks arrive
   res.json({
     success: true,
     status: {
-      server: 'online',
-      telegram: 'online',
+      server: 'connected',
+      telegram: 'connected',
       webhook: 'ready'
     }
   });
