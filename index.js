@@ -7,6 +7,7 @@
  * - TradingView JSON parsing and validation
  * - Cornix command formatting
  * - Telegram bot integration for auto-trading
+ * - Real-time bot connection status monitoring
  */
 
 const express = require('express');
@@ -82,33 +83,6 @@ loadData();
 // Auto-save every 5 minutes
 setInterval(saveData, 5 * 60 * 1000);
 
-// Cache for Telegram status (to avoid spamming API)
-let telegramStatusCache = {
-  status: 'unknown',
-  lastCheck: 0,
-  cacheDuration: 60000 // 1 minute cache
-};
-
-async function getTelegramStatus() {
-  const now = Date.now();
-  
-  // Return cached status if still valid
-  if (now - telegramStatusCache.lastCheck < telegramStatusCache.cacheDuration) {
-    return telegramStatusCache.status;
-  }
-  
-  // Check Telegram status
-  try {
-    await telegramService.testConnection();
-    telegramStatusCache.status = 'online';
-  } catch (error) {
-    telegramStatusCache.status = 'offline';
-  }
-  
-  telegramStatusCache.lastCheck = now;
-  return telegramStatusCache.status;
-}
-
 // Middleware
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));
@@ -159,20 +133,38 @@ app.get('/', (req, res) => {
  * Checks bot connectivity and configuration
  */
 app.get('/health', async (req, res) => {
+  res.json({
+    status: 'healthy',
+    telegram: telegramConnected ? 'connected' : 'disconnected',
+    botInfo: botInfo ? {
+      username: botInfo.username,
+      id: botInfo.id,
+      firstName: botInfo.first_name
+    } : null,
+    timestamp: new Date().toISOString()
+  });
+});
+
+/**
+ * Test Telegram Connection
+ * GET /test-telegram-connection
+ * Manually test Telegram bot connection
+ */
+app.get('/test-telegram-connection', async (req, res) => {
   try {
     await telegramService.testConnection();
-    
     res.json({
-      status: 'healthy',
+      success: true,
       telegram: 'connected',
+      message: 'Telegram bot is working correctly',
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    logger.error('Health check failed', { error: error.message });
     res.status(500).json({
-      status: 'unhealthy',
+      success: false,
       telegram: 'disconnected',
-      error: error.message
+      error: error.message,
+      timestamp: new Date().toISOString()
     });
   }
 });
@@ -221,14 +213,18 @@ app.get('/api/logs', (req, res) => {
  * Returns system status information
  */
 app.get('/api/status', async (req, res) => {
-  const telegramStatus = await getTelegramStatus();
-
   res.json({
     success: true,
     status: {
       server: 'online',
-      telegram: telegramStatus,
-      webhook: 'ready'
+      telegram: telegramConnected ? 'online' : 'offline',
+      webhook: 'ready',
+      cornix: telegramConnected ? 'online' : 'unknown',
+      botInfo: botInfo ? {
+        username: botInfo.username,
+        id: botInfo.id,
+        firstName: botInfo.first_name
+      } : null
     }
   });
 });
@@ -432,11 +428,15 @@ app.use((req, res) => {
   });
 });
 
+// Global variable to store bot info
+let botInfo = null;
+let telegramConnected = false;
+
 // Start Server
 const PORT = env.PORT;
 const HOST = '0.0.0.0'; // Bind to all interfaces for Docker/Cloud deployments
 
-const server = app.listen(PORT, HOST, () => {
+const server = app.listen(PORT, HOST, async () => {
   logger.info('🚀 SERVER STARTED', {
     port: PORT,
     host: HOST,
@@ -445,8 +445,42 @@ const server = app.listen(PORT, HOST, () => {
     health: `/health`
   });
 
-  // Don't test Telegram on startup to avoid timeouts
-  // Connection will be tested when first webhook arrives or status is checked
+  // Test Telegram connection on startup
+  try {
+    const axios = require('axios');
+    const response = await axios.get(
+      `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/getMe`,
+      { timeout: 10000 }
+    );
+    
+    if (response.data && response.data.ok) {
+      botInfo = response.data.result;
+      telegramConnected = true;
+      logger.info('✅ TELEGRAM BOT CONNECTED', {
+        botName: botInfo.username,
+        botId: botInfo.id,
+        firstName: botInfo.first_name
+      });
+    }
+  } catch (error) {
+    telegramConnected = false;
+    logger.error('❌ TELEGRAM BOT CONNECTION FAILED', {
+      error: error.message,
+      botToken: env.TELEGRAM_BOT_TOKEN ? 'Present (Hidden)' : 'Missing'
+    });
+  }
+  
+  // Keep-alive: Self-ping every 5 minutes to prevent Koyeb from stopping instance
+  if (env.NODE_ENV === 'production') {
+    setInterval(() => {
+      const https = require('https');
+      https.get('https://strange-dyanne-tradingbot12-29686213.koyeb.app/health', (res) => {
+        logger.info('Keep-alive ping successful');
+      }).on('error', (e) => {
+        logger.warn('Keep-alive ping failed', { error: e.message });
+      });
+    }, 5 * 60 * 1000); // Every 5 minutes
+  }
 });
 
 // Graceful shutdown
