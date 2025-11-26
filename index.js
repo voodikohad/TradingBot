@@ -132,22 +132,23 @@ app.get('/', (req, res) => {
  * Checks bot connectivity and configuration
  */
 app.get('/health', async (req, res) => {
+  let telegramStatus = 'disconnected';
+  let telegramError = null;
+  
   try {
     await telegramService.testConnection();
-    
-    res.json({
-      status: 'healthy',
-      telegram: 'connected',
-      timestamp: new Date().toISOString()
-    });
+    telegramStatus = 'connected';
   } catch (error) {
-    logger.error('Health check failed', { error: error.message });
-    res.status(500).json({
-      status: 'unhealthy',
-      telegram: 'disconnected',
-      error: error.message
-    });
+    logger.error('Health check - Telegram connection failed', { error: error.message });
+    telegramError = error.message;
   }
+  
+  res.json({
+    status: telegramStatus === 'connected' ? 'healthy' : 'unhealthy',
+    telegram: telegramStatus,
+    error: telegramError,
+    timestamp: new Date().toISOString()
+  });
 });
 
 /**
