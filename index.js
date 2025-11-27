@@ -409,6 +409,15 @@ app.post('/webhook', async (req, res) => {
       body: req.body
     });
 
+    // Check if this is a Telegram update (misconfigured webhook)
+    if (req.body && (req.body.update_id || req.body.message || req.body.channel_post || req.body.my_chat_member)) {
+      logger.info('ℹ️ Received Telegram update on TradingView webhook endpoint. Ignoring.', {
+        update_id: req.body.update_id,
+        type: req.body.message ? 'message' : (req.body.channel_post ? 'channel_post' : 'other')
+      });
+      return res.status(200).json({ status: 'ignored', message: 'Telegram updates not supported on this endpoint' });
+    }
+
     // Step 1: Validate Secret Token
     const tokenFromHeader = req.headers['x-webhook-secret'];
     const tokenFromQuery = req.query.token;
