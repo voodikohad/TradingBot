@@ -26,36 +26,60 @@ class CornixFormatter {
   }
 
   /**
-   * Converts validated webhook data into a Cornix command
+   * Converts validated webhook data into Cornix text signal format
+   * Cornix requires this specific format with TP and SL included
    * @param {Object} data - Validated webhook data
-   * @returns {string} Cornix-formatted command
+   * @returns {string} Cornix-formatted signal
    */
   formatEntryCommand(data) {
     try {
-      const { symbol, side, size, size_type, tag } = data;
+      const { symbol, side, leverage, tp1, tp2, tp3, tp4, tp5, sl, tag } = data;
 
       // Parse clean symbol for Cornix
       const cleanSymbol = this.parseSymbol(symbol);
 
-      // Build size string
-      const sizeString = size_type === 'percent' 
-        ? `${size}%` 
-        : `${size}USD`;
+      // Build Cornix signal format
+      const lines = [];
+      
+      // Tag (optional, but recommended)
+      if (tag) {
+        lines.push(tag);
+      }
+      
+      // Pair
+      lines.push(`Pair: ${cleanSymbol}`);
+      
+      // Action (Long/Short)
+      lines.push(`Action: ${side.charAt(0).toUpperCase() + side.slice(1)}`);
+      
+      // Leverage (optional)
+      if (leverage) {
+        lines.push(`Leverage: ${leverage}x`);
+      }
+      
+      // Entry
+      lines.push(`Entry: Market`);
+      
+      // TP levels (at least TP1 is required)
+      if (tp1) lines.push(`TP1: ${tp1}`);
+      if (tp2) lines.push(`TP2: ${tp2}`);
+      if (tp3) lines.push(`TP3: ${tp3}`);
+      if (tp4) lines.push(`TP4: ${tp4}`);
+      if (tp5) lines.push(`TP5: ${tp5}`);
+      
+      // Stop Loss (required)
+      if (sl) lines.push(`Stop Loss: ${sl}`);
 
-      // Build tag string (if exists) - Cornix expects #TAG format
-      const tagString = tag ? ` ${tag}` : '';
+      const command = lines.join('\n');
 
-      // Format: /entry SYMBOL SIDE SIZE_WITH_UNIT #TAG
-      const command = `/entry ${cleanSymbol} ${side} ${sizeString}${tagString}`;
-
-      logger.debug('Cornix command formatted', {
+      logger.debug('Cornix signal formatted', {
         input: data,
         output: command
       });
 
       return command;
     } catch (error) {
-      logger.error('Error formatting Cornix command', { error: error.message, data });
+      logger.error('Error formatting Cornix signal', { error: error.message, data });
       throw error;
     }
   }
