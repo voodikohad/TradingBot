@@ -12,7 +12,6 @@ class EnvConfig {
 
   validate() {
     const required = [
-      'PORT',
       'WEBHOOK_SECRET',
       'TELEGRAM_BOT_TOKEN',
       'TELEGRAM_CHAT_ID'
