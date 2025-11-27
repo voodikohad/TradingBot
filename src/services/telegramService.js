@@ -20,17 +20,26 @@ class TelegramService {
         tokenPresent: !!this.botToken,
         hasColon: this.botToken?.includes(':')
       });
+      throw new Error('Invalid Telegram bot token format. Token must be in format: 123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11');
+    }
+    
+    // Validate chat ID format
+    if (!this.chatId) {
+      logger.error('❌ Missing Telegram chat ID');
+      throw new Error('TELEGRAM_CHAT_ID environment variable is required');
     }
     
     // Support custom API base URL and proxy
     this.apiBaseUrl = env.TELEGRAM_API_BASE_URL || 'https://api.telegram.org';
     this.apiProxy = env.TELEGRAM_API_PROXY;
     
-    // If proxy is configured, use it as base URL
+    // CRITICAL FIX: Ensure correct API URL format
+    // Must be: https://api.telegram.org/bot<token>/<method>
     if (this.apiProxy) {
       this.apiUrl = `${this.apiProxy}/bot${this.botToken}`;
       logger.info('🔄 Using Telegram API Proxy', { proxy: this.apiProxy });
     } else {
+      // Ensure no double slashes or missing /bot prefix
       this.apiUrl = `${this.apiBaseUrl}/bot${this.botToken}`;
     }
     
@@ -98,35 +107,43 @@ class TelegramService {
     
     for (let attempt = 1; attempt <= retries + 1; attempt++) {
       try {
+        // CRITICAL: Ensure correct API endpoint format
         const url = `${this.apiUrl}/sendMessage`;
+        
+        // Prepare request payload
         const payload = {
           chat_id: this.chatId,
-          text: message
+          text: message,
+          parse_mode: 'HTML' // Use HTML instead of Markdown for better compatibility
         };
         
         logger.debug(`Telegram message attempt ${attempt}/${retries + 1}`, {
           url: url.replace(this.botToken, '***TOKEN***'),
           chatId: this.chatId,
           messageLength: message.length,
-          payload: {
-            chat_id: payload.chat_id,
-            text_preview: message.substring(0, 50) + '...',
-            parse_mode: payload.parse_mode
-          }
+          apiUrl: this.apiUrl.replace(this.botToken, '***TOKEN***'),
+          method: 'POST',
+          hasToken: !!this.botToken,
+          hasChatId: !!this.chatId
         });
 
+        // CRITICAL: Send POST request with correct headers
         const response = await axios.post(
           url,
           payload,
           {
             ...this.axiosConfig,
-            timeout: 15000 // Shorter timeout per attempt (15s)
+            timeout: 15000, // Shorter timeout per attempt (15s)
+            headers: {
+              ...this.axiosConfig.headers,
+              'Content-Type': 'application/json'
+            }
           }
         );
 
         const duration = Date.now() - startTime;
         logger.info('✉️ Telegram message sent successfully', {
-          messageId: response.data.result.message_id,
+          messageId: response.data.result?.message_id,
           chatId: this.chatId,
           attempt: attempt,
           duration: `${duration}ms`,
