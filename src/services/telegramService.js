@@ -11,14 +11,37 @@ const logger = require('../utils/logger');
 
 class TelegramService {
   constructor() {
+    // CRITICAL: Load environment variables with validation
     this.botToken = env.TELEGRAM_BOT_TOKEN;
     this.chatId = env.TELEGRAM_CHAT_ID;
     
+    // Log what we received from environment (for debugging Koyeb issues)
+    logger.info('🔧 Loading Telegram configuration', {
+      tokenPresent: !!this.botToken,
+      tokenType: typeof this.botToken,
+      tokenValue: this.botToken ? `${this.botToken.substring(0, 15)}...` : 'UNDEFINED',
+      chatIdPresent: !!this.chatId,
+      chatIdValue: this.chatId || 'UNDEFINED'
+    });
+    
+    // CRITICAL: Validate bot token is actually loaded
+    if (!this.botToken || this.botToken === 'undefined' || this.botToken === '') {
+      const errorMsg = 'TELEGRAM_BOT_TOKEN is not loaded from environment variables! Check Koyeb environment settings.';
+      logger.error('❌ ' + errorMsg, {
+        envVarName: 'TELEGRAM_BOT_TOKEN',
+        received: this.botToken,
+        type: typeof this.botToken,
+        allEnvVars: Object.keys(process.env).filter(k => k.startsWith('TELEGRAM'))
+      });
+      throw new Error(errorMsg);
+    }
+    
     // Validate bot token format
-    if (!this.botToken || !this.botToken.includes(':')) {
+    if (!this.botToken.includes(':')) {
       logger.error('❌ Invalid Telegram bot token format', {
         tokenPresent: !!this.botToken,
-        hasColon: this.botToken?.includes(':')
+        hasColon: this.botToken?.includes(':'),
+        token: `${this.botToken.substring(0, 10)}...`
       });
       throw new Error('Invalid Telegram bot token format. Token must be in format: 123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11');
     }

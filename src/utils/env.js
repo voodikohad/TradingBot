@@ -22,8 +22,22 @@ class EnvConfig {
 
     if (missing.length > 0) {
       console.error('❌ Missing required environment variables:');
-      missing.forEach(key => console.error(`   - ${key}`));
-      console.error('\n📋 Please copy .env.example to .env and fill in all values');
+      missing.forEach(key => {
+        console.error(`   - ${key} (value: ${process.env[key] || 'UNDEFINED'})`);
+      });
+      console.error('\n📋 Available environment variables:');
+      console.error(Object.keys(process.env).filter(k => k.includes('TELEGRAM') || k.includes('WEBHOOK')).join(', '));
+      console.error('\n📋 Please set these in Koyeb Dashboard → Settings → Environment');
+      console.error('   OR copy .env.example to .env for local development');
+      process.exit(1);
+    }
+    
+    // Additional validation: ensure values aren't just empty strings
+    const empty = required.filter(key => process.env[key] === '');
+    if (empty.length > 0) {
+      console.error('❌ Environment variables are set but EMPTY:');
+      empty.forEach(key => console.error(`   - ${key}`));
+      console.error('\n📋 Set proper values in Koyeb Dashboard → Settings → Environment');
       process.exit(1);
     }
   }
