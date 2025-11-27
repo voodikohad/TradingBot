@@ -12,8 +12,20 @@ const logger = require('../utils/logger');
 class TelegramService {
   constructor() {
     // CRITICAL: Load environment variables with validation
-    this.botToken = env.TELEGRAM_BOT_TOKEN;
-    this.chatId = env.TELEGRAM_CHAT_ID;
+    this.botToken = env.TELEGRAM_BOT_TOKEN ? env.TELEGRAM_BOT_TOKEN.trim() : null;
+    this.chatId = env.TELEGRAM_CHAT_ID ? env.TELEGRAM_CHAT_ID.trim() : null;
+    
+    // Remove 'bot' prefix if user accidentally included it in the token
+    if (this.botToken && this.botToken.toLowerCase().startsWith('bot') && this.botToken.includes(':')) {
+      // Only remove if it looks like "bot123:abc", not if the token just starts with "bot" (unlikely for ID)
+      // Actually, bot tokens start with numbers (bot ID). So if it starts with "bot", it's definitely a mistake in the env var.
+      // Example valid: 123456:ABC...
+      // Example invalid: bot123456:ABC...
+      if (/^bot\d+:/.test(this.botToken)) {
+         logger.warn('⚠️ Removing "bot" prefix from TELEGRAM_BOT_TOKEN. Please remove it from your environment variables.');
+         this.botToken = this.botToken.substring(3);
+      }
+    }
     
     // Log what we received from environment (for debugging Koyeb issues)
     logger.info('🔧 Loading Telegram configuration', {
@@ -53,8 +65,8 @@ class TelegramService {
     }
     
     // Support custom API base URL and proxy
-    this.apiBaseUrl = env.TELEGRAM_API_BASE_URL || 'https://api.telegram.org';
-    this.apiProxy = env.TELEGRAM_API_PROXY;
+    this.apiBaseUrl = (env.TELEGRAM_API_BASE_URL || 'https://api.telegram.org').replace(/\/$/, ''); // Remove trailing slash
+    this.apiProxy = env.TELEGRAM_API_PROXY ? env.TELEGRAM_API_PROXY.replace(/\/$/, '') : null;
     
     // CRITICAL FIX: Ensure correct API URL format
     // Must be: https://api.telegram.org/bot<token>/<method>
