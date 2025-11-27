@@ -399,9 +399,13 @@ app.get('/api/status', async (req, res) => {
 app.post('/webhook', async (req, res) => {
   try {
     const startTime = Date.now();
-    logger.debug('Webhook received', {
+    logger.info('📥 Webhook received', {
       method: req.method,
       path: req.path,
+      contentType: req.headers['content-type'],
+      hasBody: !!req.body,
+      bodyType: typeof req.body,
+      bodyKeys: req.body ? Object.keys(req.body) : [],
       body: req.body
     });
 
@@ -410,14 +414,26 @@ app.post('/webhook', async (req, res) => {
     const tokenFromQuery = req.query.token;
     const providedToken = tokenFromHeader || tokenFromQuery;
 
+    logger.debug('🔐 Token validation', {
+      hasHeaderToken: !!tokenFromHeader,
+      hasQueryToken: !!tokenFromQuery,
+      providedTokenLength: providedToken?.length,
+      expectedTokenLength: env.WEBHOOK_SECRET?.length
+    });
+
     if (!validator.validateToken(providedToken, env.WEBHOOK_SECRET)) {
       logger.warn('❌ Webhook authentication failed', {
+        hasToken: !!providedToken,
+        tokenLength: providedToken?.length,
+        expectedLength: env.WEBHOOK_SECRET?.length,
         timestamp: new Date().toISOString()
       });
       return res.status(401).json({
         error: 'Unauthorized: Invalid or missing webhook secret token'
       });
     }
+
+    logger.debug('✅ Token validated successfully');
 
     // Step 2: Parse and Validate Webhook Data
     const requestData = req.body;
@@ -426,11 +442,18 @@ app.post('/webhook', async (req, res) => {
     if (!validation.isValid) {
       logger.warn('❌ Webhook validation failed', {
         errors: validation.errors,
-        receivedData: requestData
+        receivedData: requestData,
+        dataKeys: Object.keys(requestData || {}),
+        action: requestData?.action,
+        side: requestData?.side,
+        symbol: requestData?.symbol,
+        size_type: requestData?.size_type,
+        size: requestData?.size
       });
       return res.status(400).json({
         error: 'Invalid webhook data',
-        details: validation.errors
+        details: validation.errors,
+        received: requestData
       });
     }
 
