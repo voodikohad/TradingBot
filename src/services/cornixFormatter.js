@@ -7,6 +7,25 @@ const logger = require('../utils/logger');
 
 class CornixFormatter {
   /**
+   * Extracts clean trading symbol from exchange-prefixed format
+   * Examples: 
+   *   BYBIT:BTCUSDT.P → BTCUSDT
+   *   BINANCE:ETHUSDT → ETHUSDT
+   *   BTCUSDT → BTCUSDT
+   * @param {string} symbol - Raw symbol from TradingView
+   * @returns {string} Clean symbol for Cornix
+   */
+  parseSymbol(symbol) {
+    // Remove exchange prefix (e.g., BYBIT:, BINANCE:)
+    let clean = symbol.split(':').pop();
+    
+    // Remove perpetual suffix (.P)
+    clean = clean.replace(/\.P$/i, '');
+    
+    return clean.toUpperCase();
+  }
+
+  /**
    * Converts validated webhook data into a Cornix command
    * @param {Object} data - Validated webhook data
    * @returns {string} Cornix-formatted command
@@ -15,16 +34,19 @@ class CornixFormatter {
     try {
       const { symbol, side, size, size_type, tag } = data;
 
+      // Parse clean symbol for Cornix
+      const cleanSymbol = this.parseSymbol(symbol);
+
       // Build size string
       const sizeString = size_type === 'percent' 
         ? `${size}%` 
         : `${size}USD`;
 
       // Build tag string (if exists) - Cornix expects #TAG format
-      const tagString = tag ? ` #${tag.replace(/^#+/, '')}` : '';
+      const tagString = tag ? ` ${tag}` : '';
 
       // Format: /entry SYMBOL SIDE SIZE_WITH_UNIT #TAG
-      const command = `/entry ${symbol} ${side} ${sizeString}${tagString}`;
+      const command = `/entry ${cleanSymbol} ${side} ${sizeString}${tagString}`;
 
       logger.debug('Cornix command formatted', {
         input: data,
@@ -40,34 +62,58 @@ class CornixFormatter {
 
   /**
    * Converts validated webhook data into a Cornix stop-loss command
-   * Reserved for future implementation
+   * Format: /sl SYMBOL #TAG
    * @param {Object} data - Validated webhook data
    * @returns {string} Cornix-formatted SL command
    */
   formatSlCommand(data) {
-    const { symbol, price, offset } = data;
+    const { symbol, tag } = data;
     
-    if (offset) {
-      return `/sl ${symbol} offset ${offset}`;
-    }
+    // Parse clean symbol for Cornix
+    const cleanSymbol = this.parseSymbol(symbol);
     
-    return `/sl ${symbol} ${price}`;
+    // Build tag string (if exists)
+    const tagString = tag ? ` ${tag}` : '';
+    
+    // Cornix SL command: /sl SYMBOL #TAG
+    const command = `/sl ${cleanSymbol}${tagString}`;
+    
+    logger.debug('Cornix SL command formatted', {
+      input: data,
+      output: command
+    });
+    
+    return command;
   }
 
   /**
    * Converts validated webhook data into a Cornix take-profit command
-   * Reserved for future implementation
+   * Format: /tp SYMBOL 1 #TAG (for TP1)
    * @param {Object} data - Validated webhook data
    * @returns {string} Cornix-formatted TP command
    */
   formatTpCommand(data) {
-    const { symbol, price, offset } = data;
+    const { symbol, tp_number, tag } = data;
     
-    if (offset) {
-      return `/tp ${symbol} offset ${offset}`;
-    }
+    // Parse clean symbol for Cornix
+    const cleanSymbol = this.parseSymbol(symbol);
     
-    return `/tp ${symbol} ${price}`;
+    // Build TP number string (default to 1 if not specified)
+    const tpNum = tp_number || 1;
+    
+    // Build tag string (if exists)
+    const tagString = tag ? ` ${tag}` : '';
+    
+    // Cornix TP command: /tp SYMBOL 1 #TAG
+    const command = `/tp ${cleanSymbol} ${tpNum}${tagString}`;
+    
+    logger.debug('Cornix TP command formatted', {
+      input: data,
+      output: command,
+      tpNumber: tpNum
+    });
+    
+    return command;
   }
 
   /**

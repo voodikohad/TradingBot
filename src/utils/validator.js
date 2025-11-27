@@ -16,8 +16,12 @@ class Validator {
     if (!data.action) errors.push('Missing required field: action');
     if (!data.side) errors.push('Missing required field: side');
     if (!data.symbol) errors.push('Missing required field: symbol');
-    if (data.size_type === undefined) errors.push('Missing required field: size_type');
-    if (data.size === undefined) errors.push('Missing required field: size');
+    
+    // size and size_type are only required for entry actions
+    if (data.action === 'entry') {
+      if (data.size_type === undefined) errors.push('Missing required field: size_type (required for entry)');
+      if (data.size === undefined) errors.push('Missing required field: size (required for entry)');
+    }
 
     // Validate field values
     if (data.action && !['entry', 'sl', 'tp', 'exit'].includes(data.action)) {
@@ -32,7 +36,7 @@ class Validator {
       errors.push(`Invalid size_type: ${data.size_type}. Must be: percent or usd`);
     }
 
-    // Validate size is a positive number
+    // Validate size is a positive number (if provided)
     if (data.size !== undefined) {
       const size = parseFloat(data.size);
       if (isNaN(size) || size <= 0) {
@@ -40,14 +44,23 @@ class Validator {
       }
     }
 
-    // Sanitize symbol (alphanumeric, dash, underscore only)
-    if (data.symbol && !/^[A-Z0-9_-]+$/i.test(data.symbol)) {
+    // Sanitize symbol - allow exchange prefix format (e.g., BYBIT:BTCUSDT.P)
+    // Allowed: letters, numbers, colon, dot, dash, underscore
+    if (data.symbol && !/^[A-Z0-9:._-]+$/i.test(data.symbol)) {
       errors.push(`Invalid symbol format: ${data.symbol}`);
     }
 
     // Sanitize tag if provided (alphanumeric, dash, underscore, hash only)
     if (data.tag && !/^[A-Z0-9_#-]+$/i.test(data.tag)) {
       errors.push(`Invalid tag format: ${data.tag}`);
+    }
+
+    // Validate tp_number for take-profit actions (1-5)
+    if (data.action === 'tp' && data.tp_number !== undefined) {
+      const tpNum = parseInt(data.tp_number);
+      if (isNaN(tpNum) || tpNum < 1 || tpNum > 5) {
+        errors.push(`Invalid tp_number: ${data.tp_number}. Must be between 1 and 5`);
+      }
     }
 
     if (errors.length > 0) {
@@ -63,10 +76,19 @@ class Validator {
       action: data.action.toLowerCase(),
       side: data.side.toLowerCase(),
       symbol: data.symbol.toUpperCase(),
-      size_type: data.size_type.toLowerCase(),
-      size: parseFloat(data.size),
       tag: data.tag ? this.sanitizeTag(data.tag) : null
     };
+
+    // Add optional fields only if present
+    if (data.size_type !== undefined) {
+      sanitized.size_type = data.size_type.toLowerCase();
+    }
+    if (data.size !== undefined) {
+      sanitized.size = parseFloat(data.size);
+    }
+    if (data.tp_number !== undefined) {
+      sanitized.tp_number = parseInt(data.tp_number);
+    }
 
     return {
       isValid: true,
