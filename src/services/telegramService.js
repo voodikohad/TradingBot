@@ -13,10 +13,40 @@ class TelegramService {
   constructor() {
     this.botToken = env.TELEGRAM_BOT_TOKEN;
     this.chatId = env.TELEGRAM_CHAT_ID;
-    this.apiUrl = `https://api.telegram.org/bot${this.botToken}`;
-    this.timeout = 30000; // Reduced to 30s - if it takes longer, there's a network issue
     
-    // Configure axios with aggressive timeout and connection settings
+    // Validate bot token format
+    if (!this.botToken || !this.botToken.includes(':')) {
+      logger.error('❌ Invalid Telegram bot token format', {
+        tokenPresent: !!this.botToken,
+        hasColon: this.botToken?.includes(':')
+      });
+    }
+    
+    // Support custom API base URL and proxy
+    this.apiBaseUrl = env.TELEGRAM_API_BASE_URL || 'https://api.telegram.org';
+    this.apiProxy = env.TELEGRAM_API_PROXY;
+    
+    // If proxy is configured, use it as base URL
+    if (this.apiProxy) {
+      this.apiUrl = `${this.apiProxy}/bot${this.botToken}`;
+      logger.info('🔄 Using Telegram API Proxy', { proxy: this.apiProxy });
+    } else {
+      this.apiUrl = `${this.apiBaseUrl}/bot${this.botToken}`;
+    }
+    
+    this.timeout = 30000; // 30s timeout
+    
+    logger.info('📱 Telegram Service initialized', {
+      apiUrl: this.apiUrl.replace(this.botToken, '***TOKEN***'),
+      apiBaseUrl: this.apiBaseUrl,
+      usingProxy: !!this.apiProxy,
+      proxyUrl: this.apiProxy || 'none',
+      chatId: this.chatId,
+      tokenLength: this.botToken?.length || 0,
+      tokenFormat: this.botToken ? `${this.botToken.substring(0, 10)}...` : 'MISSING'
+    });
+    
+    // Configure axios with timeout and connection settings
     this.axiosConfig = {
       timeout: this.timeout,
       httpsAgent: new https.Agent({
@@ -25,19 +55,21 @@ class TelegramService {
         maxSockets: 50,
         maxFreeSockets: 10,
         timeout: this.timeout,
-        // Railway-specific settings
         rejectUnauthorized: true,
         family: 4 // Force IPv4 - some platforms have IPv6 issues
       }),
-      // Add headers that help with cloud platform routing
       headers: {
         'Connection': 'keep-alive',
         'User-Agent': 'TradingBot/1.0'
       }
     };
     
-    // Test DNS resolution on init
-    this.testDNS();
+    // Test DNS resolution on init (skip if using proxy)
+    if (!this.apiProxy) {
+      this.testDNS();
+    } else {
+      logger.info('⏭️ Skipping DNS test (using proxy)');
+    }
   }
   
   async testDNS() {
@@ -66,18 +98,26 @@ class TelegramService {
     
     for (let attempt = 1; attempt <= retries + 1; attempt++) {
       try {
+        const url = `${this.apiUrl}/sendMessage`;
+        const payload = {
+          chat_id: this.chatId,
+          text: message
+        };
+        
         logger.debug(`Telegram message attempt ${attempt}/${retries + 1}`, {
+          url: url.replace(this.botToken, '***TOKEN***'),
           chatId: this.chatId,
-          messageLength: message.length
+          messageLength: message.length,
+          payload: {
+            chat_id: payload.chat_id,
+            text_preview: message.substring(0, 50) + '...',
+            parse_mode: payload.parse_mode
+          }
         });
 
         const response = await axios.post(
-          `${this.apiUrl}/sendMessage`,
-          {
-            chat_id: this.chatId,
-            text: message,
-            parse_mode: 'Markdown'
-          },
+          url,
+          payload,
           {
             ...this.axiosConfig,
             timeout: 15000 // Shorter timeout per attempt (15s)
@@ -89,7 +129,8 @@ class TelegramService {
           messageId: response.data.result.message_id,
           chatId: this.chatId,
           attempt: attempt,
-          duration: `${duration}ms`
+          duration: `${duration}ms`,
+          responseOk: response.data.ok
         });
 
         return response.data;
@@ -105,12 +146,29 @@ class TelegramService {
           duration: `${duration}ms`,
           chatId: this.chatId,
           status: error.response?.status,
-          data: error.response?.data
+          statusText: error.response?.statusText,
+          data: error.response?.data,
+          url: error.config?.url?.replace(this.botToken, '***TOKEN***'),
+          method: error.config?.method,
+          timeout: error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT'
         };
         
         if (isLastAttempt) {
           logger.error('Failed to send Telegram message after all retries', errorDetails);
-          throw new Error(`Telegram API Error: ${error.message}`);
+          
+          // Add helpful error message
+          let helpMessage = '';
+          if (error.code === 'ENOTFOUND') {
+            helpMessage = ' DNS resolution failed - check network connectivity';
+          } else if (error.code === 'ETIMEDOUT' || error.code === 'ECONNABORTED') {
+            helpMessage = ' Request timed out - Telegram API might be blocked by hosting platform';
+          } else if (error.response?.status === 404) {
+            helpMessage = ' API endpoint not found - check bot token format';
+          } else if (error.response?.status === 401 || error.response?.status === 403) {
+            helpMessage = ' Unauthorized - check bot token and chat permissions';
+          }
+          
+          throw new Error(`Telegram API Error: ${error.message}${helpMessage}`);
         } else {
           logger.warn(`Telegram message attempt ${attempt} failed, retrying...`, errorDetails);
           // Wait 2 seconds before retry
@@ -149,18 +207,17 @@ class TelegramService {
   formatCornixMessage(cornixCommand, data) {
     const timestamp = new Date().toLocaleString();
 
-    const message = `
-${cornixCommand}
+    // Use simple formatting without special characters that break Markdown
+    const message = `${cornixCommand}
 
-🚀 *TRADE SIGNAL EXECUTED*
-═══════════════════════════
-*Symbol:* \`${data.symbol}\`
-*Action:* \`${data.action.toUpperCase()}\`
-*Side:* \`${data.side.toUpperCase()}\`
-*Size:* \`${data.size}${data.size_type === 'percent' ? '%' : 'USD'}\`
-${data.tag ? `*Tag:* \`${data.tag}\`` : ''}
-*Timestamp:* ${timestamp}
-    `.trim();
+🚀 TRADE SIGNAL
+─────────────────────
+Symbol: ${data.symbol}
+Action: ${data.action.toUpperCase()}
+Side: ${data.side.toUpperCase()}
+Size: ${data.size}${data.size_type === 'percent' ? '%' : 'USD'}
+${data.tag ? `Tag: ${data.tag}` : ''}
+Time: ${timestamp}`;
 
     return message;
   }
@@ -198,12 +255,10 @@ ${data.tag ? `*Tag:* \`${data.tag}\`` : ''}
    * @returns {Promise<Object>} Telegram API response
    */
   async sendTestMessage() {
-    const testMessage = `
-🧪 *TEST MESSAGE*
-═══════════════════════════
+    const testMessage = `🧪 TEST MESSAGE
+─────────────────
 Bot connection is working correctly!
-Time: ${new Date().toISOString()}
-    `.trim();
+Time: ${new Date().toISOString()}`;
 
     return await this.sendMessage(testMessage);
   }

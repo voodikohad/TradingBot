@@ -48,6 +48,14 @@ class EnvConfig {
     return process.env.NODE_ENV || 'development';
   }
 
+  get TELEGRAM_API_BASE_URL() {
+    return process.env.TELEGRAM_API_BASE_URL || 'https://api.telegram.org';
+  }
+
+  get TELEGRAM_API_PROXY() {
+    return process.env.TELEGRAM_API_PROXY || null;
+  }
+
   get LOG_LEVEL() {
     return process.env.LOG_LEVEL || 'info';
   }

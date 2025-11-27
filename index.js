@@ -243,6 +243,45 @@ app.get('/test-telegram-connection', async (req, res) => {
 });
 
 /**
+ * Send Test Message to Telegram
+ * GET /test-send-message
+ * Directly test sending a message to the configured channel
+ */
+app.get('/test-send-message', async (req, res) => {
+  try {
+    logger.info('Test message endpoint called');
+    
+    const testPayload = {
+      action: 'entry',
+      side: 'long',
+      symbol: 'BTCUSDT',
+      size_type: 'percent',
+      size: 1.0,
+      tag: 'TEST_FROM_BACKEND'
+    };
+    
+    const cornixCommand = cornixFormatter.formatEntryCommand(testPayload);
+    const result = await telegramService.sendCornixCommand(cornixCommand, testPayload);
+    
+    res.json({
+      success: true,
+      message: 'Test message sent successfully',
+      messageId: result.result?.message_id,
+      cornixCommand: cornixCommand,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    logger.error('Test message failed', { error: error.message, stack: error.stack });
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      details: error.response?.data || 'No additional details',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
  * Get Signals
  * GET /api/signals
  * Returns recent trading signals
