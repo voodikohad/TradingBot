@@ -399,6 +399,16 @@ app.get('/api/status', async (req, res) => {
 app.post('/webhook', async (req, res) => {
   try {
     const startTime = Date.now();
+    
+    // Check if this is a Telegram update (misconfigured webhook) - do this FIRST
+    if (req.body && (req.body.update_id || req.body.message || req.body.channel_post || req.body.my_chat_member)) {
+      logger.debug('ℹ️ Received Telegram update, ignoring silently', {
+        update_id: req.body.update_id,
+        type: req.body.message ? 'message' : (req.body.channel_post ? 'channel_post' : (req.body.my_chat_member ? 'chat_member' : 'other'))
+      });
+      return res.status(200).json({ ok: true });
+    }
+
     logger.info('📥 Webhook received', {
       method: req.method,
       path: req.path,
@@ -408,15 +418,6 @@ app.post('/webhook', async (req, res) => {
       bodyKeys: req.body ? Object.keys(req.body) : [],
       body: req.body
     });
-
-    // Check if this is a Telegram update (misconfigured webhook)
-    if (req.body && (req.body.update_id || req.body.message || req.body.channel_post || req.body.my_chat_member)) {
-      logger.info('ℹ️ Received Telegram update on TradingView webhook endpoint. Ignoring.', {
-        update_id: req.body.update_id,
-        type: req.body.message ? 'message' : (req.body.channel_post ? 'channel_post' : 'other')
-      });
-      return res.status(200).json({ status: 'ignored', message: 'Telegram updates not supported on this endpoint' });
-    }
 
     // Step 1: Validate Secret Token
     const tokenFromHeader = req.headers['x-webhook-secret'];
