@@ -128,6 +128,42 @@ app.get('/', (req, res) => {
 });
 
 /**
+ * Environment Debug Endpoint
+ * GET /debug/env
+ * Shows environment variable status (for troubleshooting)
+ */
+app.get('/debug/env', (req, res) => {
+  const botToken = env.TELEGRAM_BOT_TOKEN;
+  const chatId = env.TELEGRAM_CHAT_ID;
+  
+  res.json({
+    environment: env.NODE_ENV,
+    variables: {
+      PORT: { present: !!env.PORT, value: env.PORT },
+      WEBHOOK_SECRET: { present: !!env.WEBHOOK_SECRET, length: env.WEBHOOK_SECRET?.length },
+      TELEGRAM_BOT_TOKEN: { 
+        present: !!botToken, 
+        length: botToken?.length,
+        hasColon: botToken?.includes(':'),
+        botId: botToken?.split(':')[0],
+        format: botToken?.includes(':') ? 'valid' : 'invalid'
+      },
+      TELEGRAM_CHAT_ID: { 
+        present: !!chatId, 
+        value: chatId,
+        length: chatId?.length 
+      },
+      LOG_LEVEL: { present: !!env.LOG_LEVEL, value: env.LOG_LEVEL }
+    },
+    telegram: {
+      connected: telegramConnected,
+      botInfo: botInfo
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
+/**
  * Bot Info Endpoint
  * GET /health
  * Checks bot connectivity and configuration

@@ -124,7 +124,10 @@ class TelegramService {
           apiUrl: this.apiUrl.replace(this.botToken, '***TOKEN***'),
           method: 'POST',
           hasToken: !!this.botToken,
-          hasChatId: !!this.chatId
+          hasChatId: !!this.chatId,
+          fullUrl: url.replace(this.botToken, '***TOKEN***'),
+          payloadChatId: payload.chat_id,
+          payloadTextLength: payload.text.length
         });
 
         // CRITICAL: Send POST request with correct headers
@@ -162,11 +165,15 @@ class TelegramService {
           attempt: `${attempt}/${retries + 1}`,
           duration: `${duration}ms`,
           chatId: this.chatId,
+          botToken: this.botToken ? `${this.botToken.split(':')[0]}:***` : 'MISSING',
+          apiUrl: this.apiUrl.replace(this.botToken || 'TOKEN', '***TOKEN***'),
           status: error.response?.status,
           statusText: error.response?.statusText,
           data: error.response?.data,
+          responseBody: JSON.stringify(error.response?.data),
           url: error.config?.url?.replace(this.botToken, '***TOKEN***'),
           method: error.config?.method,
+          requestData: error.config?.data ? JSON.parse(error.config.data) : null,
           timeout: error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT'
         };
         
