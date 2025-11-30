@@ -85,13 +85,14 @@ class CornixFormatter {
   }
 
   /**
-   * Converts validated webhook data into a Cornix stop-loss command
-   * Format: /sl SYMBOL #TAG
+   * Converts validated webhook data into a Cornix close/cancel command
+   * When SFP SL line is broken, we need to CLOSE the position
+   * Format: /close SYMBOL #TAG (closes position when SL is triggered)
    * @param {Object} data - Validated webhook data
-   * @returns {string} Cornix-formatted SL command
+   * @returns {string} Cornix-formatted close command
    */
   formatSlCommand(data) {
-    const { symbol, tag } = data;
+    const { symbol, side, tag } = data;
     
     // Parse clean symbol for Cornix
     const cleanSymbol = this.parseSymbol(symbol);
@@ -99,12 +100,16 @@ class CornixFormatter {
     // Build tag string (if exists)
     const tagString = tag ? ` ${tag}` : '';
     
-    // Cornix SL command: /sl SYMBOL #TAG
-    const command = `/sl ${cleanSymbol}${tagString}`;
+    // Cornix CLOSE command: /close SYMBOL #TAG
+    // This closes the open position when SFP SL line is broken
+    // The 'side' indicates which position to close (long or short)
+    const command = `/close ${cleanSymbol}${tagString}`;
     
-    logger.debug('Cornix SL command formatted', {
+    logger.debug('Cornix CLOSE command formatted (SL triggered)', {
       input: data,
-      output: command
+      output: command,
+      side: side,
+      reason: 'SFP SL line broken'
     });
     
     return command;

@@ -18,7 +18,7 @@
   ],
   "item": [
     {
-      "name": "1. ENTRY - LONG (Percent)",
+      "name": "1. ENTRY - LONG with TP/SL (CORRECT FORMAT)",
       "request": {
         "method": "POST",
         "header": [
@@ -33,18 +33,18 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"action\": \"entry\",\n  \"side\": \"long\",\n  \"symbol\": \"BYBIT:BTCUSDT.P\",\n  \"size_type\": \"percent\",\n  \"size\": 1.0,\n  \"tag\": \"SFP_SL\"\n}"
+          "raw": "{\n  \"action\": \"entry\",\n  \"side\": \"long\",\n  \"symbol\": \"BYBIT:BTCUSDT.P\",\n  \"size_type\": \"percent\",\n  \"size\": 1.0,\n  \"leverage\": 20,\n  \"tp1\": 93000,\n  \"tp2\": 94000,\n  \"tp3\": 95000,\n  \"sl\": 87000,\n  \"tag\": \"#signal\"\n}"
         },
         "url": {
           "raw": "{{webhook_url}}",
           "host": ["{{webhook_url}}"]
         },
-        "description": "Test LONG entry with 1% position size"
+        "description": "Test LONG entry with TP1-3 and Stop Loss - Cornix text format"
       },
       "response": []
     },
     {
-      "name": "2. ENTRY - SHORT (Percent)",
+      "name": "2. ENTRY - SHORT with TP/SL (CORRECT FORMAT)",
       "request": {
         "method": "POST",
         "header": [
@@ -59,18 +59,18 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"action\": \"entry\",\n  \"side\": \"short\",\n  \"symbol\": \"BYBIT:BTCUSDT.P\",\n  \"size_type\": \"percent\",\n  \"size\": 1.0,\n  \"tag\": \"SFP_SL\"\n}"
+          "raw": "{\n  \"action\": \"entry\",\n  \"side\": \"short\",\n  \"symbol\": \"BYBIT:ETHUSDT.P\",\n  \"size_type\": \"percent\",\n  \"size\": 2.0,\n  \"leverage\": 10,\n  \"tp1\": 3100,\n  \"tp2\": 3050,\n  \"tp3\": 3000,\n  \"sl\": 3250,\n  \"tag\": \"#scalp\"\n}"
         },
         "url": {
           "raw": "{{webhook_url}}",
           "host": ["{{webhook_url}}"]
         },
-        "description": "Test SHORT entry with 1% position size"
+        "description": "Test SHORT entry with TP1-3 and Stop Loss - Cornix text format"
       },
       "response": []
     },
     {
-      "name": "3. ENTRY - LONG (USD)",
+      "name": "3. ENTRY - LONG with ALL TP levels (TP1-5)",
       "request": {
         "method": "POST",
         "header": [
@@ -85,18 +85,18 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"action\": \"entry\",\n  \"side\": \"long\",\n  \"symbol\": \"BYBIT:BTCUSDT.P\",\n  \"size_type\": \"usd\",\n  \"size\": 100,\n  \"tag\": \"SFP_SL\"\n}"
+          "raw": "{\n  \"action\": \"entry\",\n  \"side\": \"long\",\n  \"symbol\": \"BYBIT:BTCUSDT.P\",\n  \"size_type\": \"percent\",\n  \"size\": 1.0,\n  \"leverage\": 25,\n  \"tp1\": 93000,\n  \"tp2\": 94000,\n  \"tp3\": 95000,\n  \"tp4\": 96000,\n  \"tp5\": 97000,\n  \"sl\": 87000,\n  \"tag\": \"#full\"\n}"
         },
         "url": {
           "raw": "{{webhook_url}}",
           "host": ["{{webhook_url}}"]
         },
-        "description": "Test LONG entry with $100 position size"
+        "description": "Test LONG entry with all 5 TP levels and Stop Loss"
       },
       "response": []
     },
     {
-      "name": "4. ENTRY - ETH (No Tag)",
+      "name": "4. ENTRY - Minimum Required (only TP1 + SL)",
       "request": {
         "method": "POST",
         "header": [
@@ -111,13 +111,13 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"action\": \"entry\",\n  \"side\": \"long\",\n  \"symbol\": \"BYBIT:ETHUSDT.P\",\n  \"size_type\": \"percent\",\n  \"size\": 2.5\n}"
+          "raw": "{\n  \"action\": \"entry\",\n  \"side\": \"long\",\n  \"symbol\": \"BTCUSDT\",\n  \"size_type\": \"percent\",\n  \"size\": 1.0,\n  \"tp1\": 92000,\n  \"sl\": 88000\n}"
         },
         "url": {
           "raw": "{{webhook_url}}",
           "host": ["{{webhook_url}}"]
         },
-        "description": "Test ETH entry without tag"
+        "description": "Test with minimum required fields - only TP1 and SL (no tag, no leverage)"
       },
       "response": []
     },

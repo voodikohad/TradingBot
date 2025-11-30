@@ -1,0 +1,505 @@
+//@version=5
+indicator("Luxalgo signaal ning SFP SL indikaator DEV",
+     overlay=true, max_lines_count=500, max_labels_count=500, max_bars_back=5000)
+
+// ---------------------------------------------
+// ÜLDINE ja ENTRY
+// ---------------------------------------------
+const string G_GEN   = "Üldine"
+useTrue   = input.bool(true,  "Kasuta toorhindasid (HA tugi)", group=G_GEN)
+allowSwap = input.bool(true,  "Luba suuna vahetus vastassignaaliga", group=G_GEN)
+
+const string G_ENT   = "Entry (lihtne test)"
+fastLen   = input.int(9,  "Kiirem EMA",   minval=1, group=G_ENT)
+slowLen   = input.int(21, "Aeglasem EMA", minval=1, group=G_ENT)
+
+// ---------------------------------------------
+// SFP ANKRULE
+// ---------------------------------------------
+const string G_SFP = "SFP seaded"
+useSfpAnchor = input.bool(true, "Kasuta ankru tasemeks viimast sama suuna SFP", group=G_SFP)
+sfpLen       = input.int (5,    "Swings SFP kinnituseks", minval=1, group=G_SFP)
+
+// ---------------------------------------------
+// SL / AHENEMINE (SFP SL loogika)
+// ---------------------------------------------
+const string G_SL = "SL (ahenemine)"
+trailLen = input.int(150, "Aken baarides alates ankrust", minval=1, group=G_SL)
+offL     = input.float(1.0, "LONG offset protsent",  minval=0.01, step=0.01, group=G_SL)
+offS     = input.float(1.0, "SHORT offset protsent", minval=0.01, step=0.01, group=G_SL)
+slCol    = input.color(color.yellow, "SL joone värv", group=G_SL)
+
+// ---------------------------------------------
+// TP tasemed ja SL liigutamine TP järel
+// ---------------------------------------------
+const string G_TP = "TP tasemed"
+useTp    = input.bool(false, "Kasuta TP tasemeid", group=G_TP)
+
+i_on_tp1    = input.bool(true, "", inline="tp1", group=G_TP)
+i_dist_tp1  = input.float(0.3, "TP1 distance protsent", step=0.01, inline="tp1", group=G_TP)
+i_col_tp1   = input.color(color.new(color.green, 0), "", inline="tp1", group=G_TP)
+
+i_on_tp2    = input.bool(true, "", inline="tp2", group=G_TP)
+i_dist_tp2  = input.float(0.6, "TP2 distance protsent", step=0.01, inline="tp2", group=G_TP)
+i_col_tp2   = input.color(color.new(color.teal, 0), "", inline="tp2", group=G_TP)
+
+i_on_tp3    = input.bool(true, "", inline="tp3", group=G_TP)
+i_dist_tp3  = input.float(0.9, "TP3 distance protsent", step=0.01, inline="tp3", group=G_TP)
+i_col_tp3   = input.color(color.new(color.blue, 0), "", inline="tp3", group=G_TP)
+
+i_on_tp4    = input.bool(true, "", inline="tp4", group=G_TP)
+i_dist_tp4  = input.float(1.2, "TP4 distance protsent", step=0.01, inline="tp4", group=G_TP)
+i_col_tp4   = input.color(color.new(color.orange, 0), "", inline="tp4", group=G_TP)
+
+i_on_tp5    = input.bool(true, "", inline="tp5", group=G_TP)
+i_dist_tp5  = input.float(1.5, "TP5 distance protsent", step=0.01, inline="tp5", group=G_TP)
+i_col_tp5   = input.color(color.new(color.white, 0), "", inline="tp5", group=G_TP)
+
+// SL liigutamine TP tabamuse järel
+i_sl_move = input.bool(true, "Liiguta SL pärast TP tabamust", group=G_TP)
+
+// ---------------------------------------------
+// TRADE ALERTS / CORNIX (entry alert JSON)
+// ---------------------------------------------
+const string G_TR = "Trade Alerts / Cornix"
+sendEntryAlerts   = input.bool(true, "Saada treidi alustamise alert", group=G_TR)
+leverageValue     = input.int(20, "Leverage", minval=1, maxval=125, group=G_TR)
+sizeMode          = input.string("percent", "Positsiooni suuruse tüüp", options = ["percent", "usd"], group=G_TR)
+sizeValue         = input.float(1.0, "Positsiooni suurus vastavalt tüübile", minval=0.01, step=0.01, group=G_TR)
+entryTag          = input.string("SFP_SL_DEV", "Strateegia silt või tag", group=G_TR)
+
+// ---------------------------------------------
+// HINNAD (HA tugi)
+// ---------------------------------------------
+_h = useTrue ? request.security(syminfo.tickerid, timeframe.period, high)  : high
+_l = useTrue ? request.security(syminfo.tickerid, timeframe.period, low)   : low
+_o = useTrue ? request.security(syminfo.tickerid, timeframe.period, open)  : open
+_c = useTrue ? request.security(syminfo.tickerid, timeframe.period, close) : close
+
+// EMA põhine lihtne entry signaal
+emaFast = ta.ema(_c, fastLen)
+emaSlow = ta.ema(_c, slowLen)
+
+// ---------------------------------------------
+// Olek ja TP muutujad
+// ---------------------------------------------
+var int   pos_state  = 0     // 1 long, −1 short, 0 none
+var float entryPrice = na
+
+var float tp1Long = na
+var float tp2Long = na
+var float tp3Long = na
+var float tp4Long = na
+var float tp5Long = na
+
+var float tp1Short = na
+var float tp2Short = na
+var float tp3Short = na
+var float tp4Short = na
+var float tp5Short = na
+
+var bool tp1HitLong  = false
+var bool tp2HitLong  = false
+var bool tp3HitLong  = false
+var bool tp4HitLong  = false
+var bool tp5HitLong  = false
+
+var bool tp1HitShort = false
+var bool tp2HitShort = false
+var bool tp3HitShort = false
+var bool tp4HitShort = false
+var bool tp5HitShort = false
+
+var float slL_from_tp = na
+var float slS_from_tp = na
+
+// ---------------------------------------------
+// ENTRY TRIGGER EMA ristumise järgi
+// ---------------------------------------------
+fireLong  = ta.crossover(emaFast, emaSlow)  and (allowSwap or nz(pos_state[1]) != 1)
+fireShort = ta.crossunder(emaFast, emaSlow) and (allowSwap or nz(pos_state[1]) != -1)
+
+// Visuaalne märge graafikul, et arendaja näeb kus entry tekib
+plotshape(fireLong,  "ENTRY LONG",  location=location.belowbar, style=shape.circle, size=size.tiny, color=color.new(color.blue, 0))
+plotshape(fireShort, "ENTRY SHORT", location=location.abovebar,  style=shape.circle, size=size.tiny, color=color.new(color.red,  0))
+
+// ---------------------------------------------
+// ENTRY oleku uuendamine
+// ---------------------------------------------
+if fireLong
+    pos_state  := 1
+    entryPrice := _c
+
+    tp1HitLong  := false
+    tp2HitLong  := false
+    tp3HitLong  := false
+    tp4HitLong  := false
+    tp5HitLong  := false
+
+    tp1HitShort := false
+    tp2HitShort := false
+    tp3HitShort := false
+    tp4HitShort := false
+    tp5HitShort := false
+
+    tp1Long  := na
+    tp2Long  := na
+    tp3Long  := na
+    tp4Long  := na
+    tp5Long  := na
+    tp1Short := na
+    tp2Short := na
+    tp3Short := na
+    tp4Short := na
+    tp5Short := na
+
+    slL_from_tp := na
+    slS_from_tp := na
+
+else if fireShort
+    pos_state  := -1
+    entryPrice := _c
+
+    tp1HitLong  := false
+    tp2HitLong  := false
+    tp3HitLong  := false
+    tp4HitLong  := false
+    tp5HitLong  := false
+
+    tp1HitShort := false
+    tp2HitShort := false
+    tp3HitShort := false
+    tp4HitShort := false
+    tp5HitShort := false
+
+    tp1Long  := na
+    tp2Long  := na
+    tp3Long  := na
+    tp4Long  := na
+    tp5Long  := na
+    tp1Short := na
+    tp2Short := na
+    tp3Short := na
+    tp4Short := na
+    tp5Short := na
+
+    slL_from_tp := na
+    slS_from_tp := na
+
+else
+    pos_state := nz(pos_state[1])
+
+// ---------------------------------------------
+// SFP KINNITUS
+// ---------------------------------------------
+ph = ta.pivothigh(sfpLen, 1)
+pl = ta.pivotlow (sfpLen, 1)
+
+var int   swingH_bix = na
+var float swingH_prc = na
+var int   swingL_bix = na
+var float swingL_prc = na
+if not na(ph)
+    swingH_bix := bar_index - 1
+    swingH_prc := ph
+if not na(pl)
+    swingL_bix := bar_index - 1
+    swingL_prc := pl
+
+bool  sfpBear = false
+bool  sfpBull = false
+float sfpBearLvl = na
+float sfpBullLvl = na
+var   int MAXLB = 5000
+
+if not na(swingH_prc) and _h > swingH_prc and _o < swingH_prc and _c < swingH_prc
+    lbB = math.min(math.max(bar_index - swingH_bix, 1), MAXLB)
+    opposL = ta.lowest(_l, lbB)
+    if _c < opposL
+        sfpBear    := true
+        sfpBearLvl := swingH_prc
+
+if not na(swingL_prc) and _l < swingL_prc and _o > swingL_prc and _c > swingL_prc
+    lbB = math.min(math.max(bar_index - swingL_bix, 1), MAXLB)
+    opposH = ta.highest(_h, lbB)
+    if _c > opposH
+        sfpBull    := true
+        sfpBullLvl := swingL_prc
+
+var float lastBullSfp = na
+var float lastBearSfp = na
+if sfpBull
+    lastBullSfp := sfpBullLvl
+if sfpBear
+    lastBearSfp := sfpBearLvl
+
+// ---------------------------------------------
+// ANKRUD ENTRY jaoks (SFP ankru tase)
+// ---------------------------------------------
+var int   anchorIdxL = na
+var float anchorLvlL = na
+var int   anchorIdxS = na
+var float anchorLvlS = na
+
+if fireLong
+    anchorIdxL := bar_index
+    anchorLvlL := useSfpAnchor ? nz(lastBullSfp, _l) : _l
+    anchorIdxS := na
+    anchorLvlS := na
+
+if fireShort
+    anchorIdxS := bar_index
+    anchorLvlS := useSfpAnchor ? nz(lastBearSfp, _h) : _h
+    anchorIdxL := na
+    anchorLvlL := na
+
+// ---------------------------------------------
+// SFP SL ahenemine
+// ---------------------------------------------
+var float slL = na
+var float slS = na
+
+if not na(anchorIdxL) and pos_state == 1
+    bs   = bar_index - anchorIdxL + 1
+    lb   = math.min(trailLen, bs)
+    base = lb >= 1 ? ta.lowest(_l, lb) : anchorLvlL
+    cand = base * (1 - offL / 100.0)
+    slL  := na(slL[1]) ? cand : math.max(slL[1], cand)
+else
+    slL := na
+
+if not na(anchorIdxS) and pos_state == -1
+    bs   = bar_index - anchorIdxS + 1
+    lb   = math.min(trailLen, bs)
+    base = lb >= 1 ? ta.highest(_h, lb) : anchorLvlS
+    cand = base * (1 + offS / 100.0)
+    slS  := na(slS[1]) ? cand : math.min(slS[1], cand)
+else
+    slS := na
+
+// ---------------------------------------------
+// TP hinnad entryPrice põhjal
+// ---------------------------------------------
+if useTp and not na(entryPrice) and pos_state != 0
+    if pos_state == 1
+        tp1Long  := i_on_tp1 ? entryPrice * (1 + i_dist_tp1 / 100.0) : na
+        tp2Long  := i_on_tp2 ? entryPrice * (1 + i_dist_tp2 / 100.0) : na
+        tp3Long  := i_on_tp3 ? entryPrice * (1 + i_dist_tp3 / 100.0) : na
+        tp4Long  := i_on_tp4 ? entryPrice * (1 + i_dist_tp4 / 100.0) : na
+        tp5Long  := i_on_tp5 ? entryPrice * (1 + i_dist_tp5 / 100.0) : na
+
+        tp1Short := na
+        tp2Short := na
+        tp3Short := na
+        tp4Short := na
+        tp5Short := na
+    else if pos_state == -1
+        tp1Short := i_on_tp1 ? entryPrice * (1 - i_dist_tp1 / 100.0) : na
+        tp2Short := i_on_tp2 ? entryPrice * (1 - i_dist_tp2 / 100.0) : na
+        tp3Short := i_on_tp3 ? entryPrice * (1 - i_dist_tp3 / 100.0) : na
+        tp4Short := i_on_tp4 ? entryPrice * (1 - i_dist_tp4 / 100.0) : na
+        tp5Short := i_on_tp5 ? entryPrice * (1 - i_dist_tp5 / 100.0) : na
+
+        tp1Long  := na
+        tp2Long  := na
+        tp3Long  := na
+        tp4Long  := na
+        tp5Long  := na
+else if pos_state == 0
+    tp1Long  := na
+    tp2Long  := na
+    tp3Long  := na
+    tp4Long  := na
+    tp5Long  := na
+    tp1Short := na
+    tp2Short := na
+    tp3Short := na
+    tp4Short := na
+    tp5Short := na
+
+// ---------------------------------------------
+// TP hit loogika ja SL liigutamine
+// ---------------------------------------------
+if useTp and i_sl_move and pos_state == 1 and not na(entryPrice)
+    if not tp1HitLong and i_on_tp1 and not na(tp1Long) and _h >= tp1Long
+        tp1HitLong  := true
+        slL_from_tp := entryPrice
+
+    if tp1HitLong and not tp2HitLong and i_on_tp2 and not na(tp2Long) and _h >= tp2Long
+        tp2HitLong  := true
+        slL_from_tp := tp1Long
+
+    if tp2HitLong and not tp3HitLong and i_on_tp3 and not na(tp3Long) and _h >= tp3Long
+        tp3HitLong  := true
+        slL_from_tp := tp2Long
+
+    if tp3HitLong and not tp4HitLong and i_on_tp4 and not na(tp4Long) and _h >= tp4Long
+        tp4HitLong  := true
+        slL_from_tp := tp3Long
+
+    if tp4HitLong and not tp5HitLong and i_on_tp5 and not na(tp5Long) and _h >= tp5Long
+        tp5HitLong  := true
+        slL_from_tp := tp4Long
+
+if useTp and i_sl_move and pos_state == -1 and not na(entryPrice)
+    if not tp1HitShort and i_on_tp1 and not na(tp1Short) and _l <= tp1Short
+        tp1HitShort := true
+        slS_from_tp := entryPrice
+
+    if tp1HitShort and not tp2HitShort and i_on_tp2 and not na(tp2Short) and _l <= tp2Short
+        tp2HitShort := true
+        slS_from_tp := tp1Short
+
+    if tp2HitShort and not tp3HitShort and i_on_tp3 and not na(tp3Short) and _l <= tp3Short
+        tp3HitShort := true
+        slS_from_tp := tp2Short
+
+    if tp3HitShort and not tp4HitShort and i_on_tp4 and not na(tp4Short) and _l <= tp4Short
+        tp4HitShort := true
+        slS_from_tp := tp3Short
+
+    if tp4HitShort and not tp5HitShort and i_on_tp5 and not na(tp5Short) and _l <= tp5Short
+        tp5HitShort := true
+        slS_from_tp := tp4Short
+
+// ---------------------------------------------
+// Lõplik SL
+// ---------------------------------------------
+var float slL_final = na
+var float slS_final = na
+
+slL_final := slL
+slS_final := slS
+
+if useTp and i_sl_move and pos_state == 1 and not na(slL_from_tp)
+    slL_final := na(slL) ? slL_from_tp : math.max(slL, slL_from_tp)
+
+if useTp and i_sl_move and pos_state == -1 and not na(slS_from_tp)
+    slS_final := na(slS) ? slS_from_tp : math.min(slS, slS_from_tp)
+
+// ---------------------------------------------
+// SL trigger
+// ---------------------------------------------
+longSL  = pos_state == 1  and not na(slL_final[1]) and _l <= slL_final[1]
+shortSL = pos_state == -1 and not na(slS_final[1]) and _h >= slS_final[1]
+
+if longSL or shortSL
+    pos_state  := 0
+    anchorIdxL := na
+    anchorLvlL := na
+    anchorIdxS := na
+    anchorLvlS := na
+    slL        := na
+    slS        := na
+    slL_from_tp := na
+    slS_from_tp := na
+    entryPrice  := na
+
+    tp1HitLong  := false
+    tp2HitLong  := false
+    tp3HitLong  := false
+    tp4HitLong  := false
+    tp5HitLong  := false
+
+    tp1HitShort := false
+    tp2HitShort := false
+    tp3HitShort := false
+    tp4HitShort := false
+    tp5HitShort := false
+
+    tp1Long  := na
+    tp2Long  := na
+    tp3Long  := na
+    tp4Long  := na
+    tp5Long  := na
+    tp1Short := na
+    tp2Short := na
+    tp3Short := na
+    tp4Short := na
+    tp5Short := na
+
+// ---------------------------------------------
+// GRAFIKA
+// ---------------------------------------------
+plot(slL_final, "SFP SL Long",  color=slCol, style=plot.style_linebr, linewidth=2)
+plot(slS_final, "SFP SL Short", color=slCol, style=plot.style_linebr, linewidth=2)
+
+plot(useTp and pos_state == 1 and i_on_tp1 and not na(tp1Long)  ? tp1Long  : na, "TP1 Long",  color=i_col_tp1, style=plot.style_linebr, linewidth=1)
+plot(useTp and pos_state == 1 and i_on_tp2 and not na(tp2Long)  ? tp2Long  : na, "TP2 Long",  color=i_col_tp2, style=plot.style_linebr, linewidth=1)
+plot(useTp and pos_state == 1 and i_on_tp3 and not na(tp3Long)  ? tp3Long  : na, "TP3 Long",  color=i_col_tp3, style=plot.style_linebr, linewidth=1)
+plot(useTp and pos_state == 1 and i_on_tp4 and not na(tp4Long)  ? tp4Long  : na, "TP4 Long",  color=i_col_tp4, style=plot.style_linebr, linewidth=1)
+plot(useTp and pos_state == 1 and i_on_tp5 and not na(tp5Long)  ? tp5Long  : na, "TP5 Long",  color=i_col_tp5, style=plot.style_linebr, linewidth=1)
+
+plot(useTp and pos_state == -1 and i_on_tp1 and not na(tp1Short) ? tp1Short : na, "TP1 Short", color=i_col_tp1, style=plot.style_linebr, linewidth=1)
+plot(useTp and pos_state == -1 and i_on_tp2 and not na(tp2Short) ? tp2Short : na, "TP2 Short", color=i_col_tp2, style=plot.style_linebr, linewidth=1)
+plot(useTp and pos_state == -1 and i_on_tp3 and not na(tp3Short) ? tp3Short : na, "TP3 Short", color=i_col_tp3, style=plot.style_linebr, linewidth=1)
+plot(useTp and pos_state == -1 and i_on_tp4 and not na(tp4Short) ? tp4Short : na, "TP4 Short", color=i_col_tp4, style=plot.style_linebr, linewidth=1)
+plot(useTp and pos_state == -1 and i_on_tp5 and not na(tp5Short) ? tp5Short : na, "TP5 Short", color=i_col_tp5, style=plot.style_linebr, linewidth=1)
+
+plotshape(longSL,  "LONG SL trigger",  location=location.belowbar, color=color.new(color.green, 0), style=shape.xcross, size=size.tiny)
+plotshape(shortSL, "SHORT SL trigger", location=location.abovebar,  color=color.new(color.red,   0), style=shape.xcross, size=size.tiny)
+
+// ═════════════════════════════════════════════════════════════════════════════
+// WEBHOOK ALERTS - CORNIX INTEGRATION (SENDS TP1-TP5 + SL TO BACKEND)
+// ═════════════════════════════════════════════════════════════════════════════
+
+if sendEntryAlerts
+    if fireLong
+        // Build JSON with all TP levels that are enabled
+        string jsonMsg = '{"action":"entry","side":"long","symbol":"' + syminfo.ticker + 
+             '","size_type":"' + sizeMode + '","size":' + str.tostring(sizeValue) + 
+             ',"leverage":' + str.tostring(leverageValue)
+        
+        // Add TP levels if enabled
+        if i_on_tp1 and not na(tp1Long)
+            jsonMsg := jsonMsg + ',"tp1":' + str.tostring(math.round(tp1Long, 2))
+        if i_on_tp2 and not na(tp2Long)
+            jsonMsg := jsonMsg + ',"tp2":' + str.tostring(math.round(tp2Long, 2))
+        if i_on_tp3 and not na(tp3Long)
+            jsonMsg := jsonMsg + ',"tp3":' + str.tostring(math.round(tp3Long, 2))
+        if i_on_tp4 and not na(tp4Long)
+            jsonMsg := jsonMsg + ',"tp4":' + str.tostring(math.round(tp4Long, 2))
+        if i_on_tp5 and not na(tp5Long)
+            jsonMsg := jsonMsg + ',"tp5":' + str.tostring(math.round(tp5Long, 2))
+        
+        // Add SL (required)
+        if not na(slL_final)
+            jsonMsg := jsonMsg + ',"sl":' + str.tostring(math.round(slL_final, 2))
+        
+        // Add tag and close JSON
+        jsonMsg := jsonMsg + ',"tag":"' + entryTag + '"}'
+        
+        alert(jsonMsg, alert.freq_once_per_bar_close)
+    
+    if fireShort
+        // Build JSON with all TP levels that are enabled
+        string jsonMsg = '{"action":"entry","side":"short","symbol":"' + syminfo.ticker + 
+             '","size_type":"' + sizeMode + '","size":' + str.tostring(sizeValue) + 
+             ',"leverage":' + str.tostring(leverageValue)
+        
+        // Add TP levels if enabled
+        if i_on_tp1 and not na(tp1Short)
+            jsonMsg := jsonMsg + ',"tp1":' + str.tostring(math.round(tp1Short, 2))
+        if i_on_tp2 and not na(tp2Short)
+            jsonMsg := jsonMsg + ',"tp2":' + str.tostring(math.round(tp2Short, 2))
+        if i_on_tp3 and not na(tp3Short)
+            jsonMsg := jsonMsg + ',"tp3":' + str.tostring(math.round(tp3Short, 2))
+        if i_on_tp4 and not na(tp4Short)
+            jsonMsg := jsonMsg + ',"tp4":' + str.tostring(math.round(tp4Short, 2))
+        if i_on_tp5 and not na(tp5Short)
+            jsonMsg := jsonMsg + ',"tp5":' + str.tostring(math.round(tp5Short, 2))
+        
+        // Add SL (required)
+        if not na(slS_final)
+            jsonMsg := jsonMsg + ',"sl":' + str.tostring(math.round(slS_final, 2))
+        
+        // Add tag and close JSON
+        jsonMsg := jsonMsg + ',"tag":"' + entryTag + '"}'
+        
+        alert(jsonMsg, alert.freq_once_per_bar_close)
+
+// ---------------------------------------------
+// SL alertcondition väljaminevad signaalid
+// ---------------------------------------------
+alertcondition(longSL,  "SFP SL LONG STOP",  "Price hit SFP LONG SL {{ticker}} {{interval}}")
+alertcondition(shortSL, "SFP SL SHORT STOP", "Price hit SFP SHORT SL {{ticker}} {{interval}}")

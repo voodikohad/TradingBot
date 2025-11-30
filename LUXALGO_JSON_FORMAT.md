@@ -38,9 +38,9 @@ Use this for opening new positions (LONG or SHORT):
 
 ---
 
-### 2️⃣ **STOP-LOSS Signals**
+### 2️⃣ **STOP-LOSS / CLOSE POSITION Signals**
 
-Use this to trigger stop-loss on existing positions:
+Use this to **close a position** when your SFP SL line is broken:
 
 ```json
 {
@@ -55,12 +55,14 @@ Use this to trigger stop-loss on existing positions:
 - `action`: Must be `"sl"`
 - `side`: `"long"` or `"short"` (must match the position side)
 - `symbol`: From `syminfo.ticker`
-- `tag`: *(optional)* Your custom tag
+- `tag`: *(optional)* Your custom tag (e.g., `"SFP_SL"`)
 
 **Cornix Output:**
 ```
-/sl BTCUSDT #SFP_SL
+/close BTCUSDT #SFP_SL
 ```
+
+⚠️ **Important:** This sends `/close` (not `/sl`) to Cornix because we want to **close the position entirely** when your dynamic SFP SL line is broken. The placeholder SL in the entry signal is just to satisfy Cornix requirements and should never be hit.
 
 ---
 

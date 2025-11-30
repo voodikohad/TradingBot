@@ -1,6 +1,9 @@
 /**
  * Test Suite for Luxalgo Indicator JSON Formats
  * Tests all webhook payloads from TradingView indicator
+ * 
+ * UPDATED: Entry signals now require tp1 and sl (placeholder values)
+ * UPDATED: SL signals now generate /close command (not /sl)
  */
 
 const validator = require('../src/utils/validator');
@@ -9,51 +12,55 @@ const cornixFormatter = require('../src/services/cornixFormatter');
 console.log('🧪 Testing Luxalgo Indicator JSON Formats\n');
 console.log('='.repeat(60));
 
-// Test payloads
+// Test payloads - UPDATED to include required TP/SL for entry
 const testPayloads = [
   {
-    name: 'ENTRY - LONG',
+    name: 'ENTRY - LONG (with placeholder TP/SL)',
     payload: {
       action: 'entry',
       side: 'long',
       symbol: 'BYBIT:BTCUSDT.P',
       size_type: 'percent',
       size: 1.0,
+      tp1: 100000,  // Placeholder TP (far away)
+      sl: 1,        // Placeholder SL (far away)
       tag: 'SFP_SL'
     },
-    expectedCommand: '/entry BTCUSDT long 1% #SFP_SL'
+    expectedCommandContains: ['Pair: BTCUSDT', 'Action: Long', 'TP1: 100000', 'Stop Loss: 1']
   },
   {
-    name: 'ENTRY - SHORT',
+    name: 'ENTRY - SHORT (with placeholder TP/SL)',
     payload: {
       action: 'entry',
       side: 'short',
       symbol: 'BYBIT:BTCUSDT.P',
       size_type: 'percent',
       size: 1.0,
+      tp1: 1,       // Placeholder TP (far away for short)
+      sl: 100000,   // Placeholder SL (far away for short)
       tag: 'SFP_SL'
     },
-    expectedCommand: '/entry BTCUSDT short 1% #SFP_SL'
+    expectedCommandContains: ['Pair: BTCUSDT', 'Action: Short', 'TP1: 1', 'Stop Loss: 100000']
   },
   {
-    name: 'STOP-LOSS - LONG',
+    name: 'STOP-LOSS / CLOSE - LONG (SFP SL triggered)',
     payload: {
       action: 'sl',
       side: 'long',
       symbol: 'BYBIT:BTCUSDT.P',
       tag: 'SFP_SL'
     },
-    expectedCommand: '/sl BTCUSDT #SFP_SL'
+    expectedCommand: '/close BTCUSDT #SFP_SL'
   },
   {
-    name: 'STOP-LOSS - SHORT',
+    name: 'STOP-LOSS / CLOSE - SHORT (SFP SL triggered)',
     payload: {
       action: 'sl',
       side: 'short',
       symbol: 'BYBIT:BTCUSDT.P',
       tag: 'SFP_SL'
     },
-    expectedCommand: '/sl BTCUSDT #SFP_SL'
+    expectedCommand: '/close BTCUSDT #SFP_SL'
   },
   {
     name: 'TAKE-PROFIT 1 - LONG',
@@ -111,27 +118,40 @@ const testPayloads = [
     expectedCommand: '/tp BTCUSDT 5 #SFP_SL'
   },
   {
-    name: 'ENTRY - ETH (no tag)',
+    name: 'ENTRY - ETH with placeholder TP/SL (no tag)',
     payload: {
       action: 'entry',
       side: 'long',
       symbol: 'BYBIT:ETHUSDT.P',
       size_type: 'percent',
-      size: 2.5
+      size: 2.5,
+      tp1: 50000,
+      sl: 1
     },
-    expectedCommand: '/entry ETHUSDT long 2.5%'
+    expectedCommandContains: ['Pair: ETHUSDT', 'Action: Long', 'TP1: 50000', 'Stop Loss: 1']
   },
   {
-    name: 'ENTRY - Simple symbol (no exchange prefix)',
+    name: 'ENTRY - Simple symbol with placeholder TP/SL',
     payload: {
       action: 'entry',
       side: 'long',
       symbol: 'BTCUSDT',
       size_type: 'usd',
       size: 100,
+      tp1: 100000,
+      sl: 1,
       tag: 'MANUAL'
     },
-    expectedCommand: '/entry BTCUSDT long 100USD #MANUAL'
+    expectedCommandContains: ['Pair: BTCUSDT', 'Action: Long', 'TP1: 100000', 'Stop Loss: 1', '#MANUAL']
+  },
+  {
+    name: 'CLOSE - SUIUSDT (no tag)',
+    payload: {
+      action: 'sl',
+      side: 'long',
+      symbol: 'BYBIT:SUIUSDT.P'
+    },
+    expectedCommand: '/close SUIUSDT'
   }
 ];
 
@@ -172,15 +192,28 @@ testPayloads.forEach((test, index) => {
     }
     
     console.log('Generated Command:', command);
-    console.log('Expected Command: ', test.expectedCommand);
     
-    // Check if matches expected
-    if (command === test.expectedCommand) {
-      console.log('✅ PASSED - Command matches expected output');
-      passed++;
-    } else {
-      console.log('❌ FAILED - Command does not match expected');
-      failed++;
+    // Check if test expects exact match or contains
+    if (test.expectedCommand) {
+      console.log('Expected Command: ', test.expectedCommand);
+      if (command === test.expectedCommand) {
+        console.log('✅ PASSED - Command matches expected output');
+        passed++;
+      } else {
+        console.log('❌ FAILED - Command does not match expected');
+        failed++;
+      }
+    } else if (test.expectedCommandContains) {
+      console.log('Expected to contain:', test.expectedCommandContains.join(', '));
+      const allFound = test.expectedCommandContains.every(part => command.includes(part));
+      if (allFound) {
+        console.log('✅ PASSED - Command contains all expected parts');
+        passed++;
+      } else {
+        const missing = test.expectedCommandContains.filter(part => !command.includes(part));
+        console.log('❌ FAILED - Missing parts:', missing.join(', '));
+        failed++;
+      }
     }
   } catch (error) {
     console.log('❌ FAILED - Error formatting:', error.message);
