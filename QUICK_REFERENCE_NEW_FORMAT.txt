@@ -1,0 +1,255 @@
+╔══════════════════════════════════════════════════════════════════╗
+║                   📋 QUICK REFERENCE CARD                         ║
+║              New TradingView JSON Format Support                 ║
+╚══════════════════════════════════════════════════════════════════╝
+
+┌──────────────────────────────────────────────────────────────────┐
+│ 🎯 WHAT'S NEW                                                     │
+└──────────────────────────────────────────────────────────────────┘
+
+✅ Supports new nested JSON format from TradingView
+✅ Beautiful Cornix signal output with emojis and formatting
+✅ Backward compatible - old format still works!
+✅ Automatic format detection
+✅ Comprehensive test suite included
+
+
+┌──────────────────────────────────────────────────────────────────┐
+│ 📝 TRADINGVIEW ALERT TEMPLATE (LONG)                             │
+└──────────────────────────────────────────────────────────────────┘
+
+{
+  "pair": "{{ticker}}",
+  "signal_type": "Regular (Long)",
+  "exchange": "Binance Futures",
+  "leverage": "Isolated (10X)",
+  "position_size": "1%",
+  "entry_type": "Buy at current price",
+  "take_profit_targets": {
+    "1": {{TP1}},
+    "2": {{TP2}},
+    "3": {{TP3}},
+    "4": {{TP4}},
+    "5": {{TP5}}
+  },
+  "stop_targets": {
+    "1": {{SL}}
+  },
+  "trailing_configuration": {
+    "entry": "Percentage (0.5%)",
+    "take_profit": "Percentage (0.5%)",
+    "stop": "Moving Target",
+    "trigger": "Target (1)"
+  },
+  "trade_signal": {
+    "symbol": "{{ticker}}",
+    "side": "LONG",
+    "size": "1%",
+    "tag": "#SFP_SL"
+  }
+}
+
+
+┌──────────────────────────────────────────────────────────────────┐
+│ 📝 TRADINGVIEW ALERT TEMPLATE (SHORT)                            │
+└──────────────────────────────────────────────────────────────────┘
+
+{
+  "pair": "{{ticker}}",
+  "signal_type": "Regular (Short)",
+  "exchange": "Binance Futures",
+  "leverage": "Isolated (10X)",
+  "position_size": "1%",
+  "entry_type": "Sell at current price",
+  "take_profit_targets": {
+    "1": {{TP1}},
+    "2": {{TP2}},
+    "3": {{TP3}},
+    "4": {{TP4}},
+    "5": {{TP5}}
+  },
+  "stop_targets": {
+    "1": {{SL}}
+  },
+  "trailing_configuration": {
+    "entry": "Percentage (0.5%)",
+    "take_profit": "Percentage (0.5%)",
+    "stop": "Moving Target",
+    "trigger": "Target (1)"
+  },
+  "trade_signal": {
+    "symbol": "{{ticker}}",
+    "side": "SHORT",
+    "size": "1%",
+    "tag": "#SFP_SL"
+  }
+}
+
+
+┌──────────────────────────────────────────────────────────────────┐
+│ 🔧 WEBHOOK URL                                                    │
+└──────────────────────────────────────────────────────────────────┘
+
+https://strange-dyanne-tradingbot12-29686213.koyeb.app/webhook?token=YOUR_SECRET_TOKEN
+
+Replace YOUR_SECRET_TOKEN with your actual token from .env file
+
+
+┌──────────────────────────────────────────────────────────────────┐
+│ 🧪 TESTING COMMANDS                                               │
+└──────────────────────────────────────────────────────────────────┘
+
+# Test with Node.js (local validation)
+node tests/test-new-tradingview-format.js
+
+# Test with PowerShell (real webhook)
+.\tests\test-new-format.ps1
+
+# Test TradingView alert
+1. Create alert in TradingView
+2. Paste JSON template in Message field
+3. Add webhook URL
+4. Click "Test" button
+
+
+┌──────────────────────────────────────────────────────────────────┐
+│ 📖 DOCUMENTATION FILES                                            │
+└──────────────────────────────────────────────────────────────────┘
+
+NEW_FORMAT_GUIDE.md
+  → Complete technical documentation
+  → Format templates and examples
+  → Testing and troubleshooting
+
+TRADINGVIEW_PINE_SCRIPT_GUIDE.md
+  → TradingView-specific integration
+  → Pine Script examples
+  → Alert setup walkthrough
+
+NEW_FORMAT_SUMMARY.md
+  → Quick overview of changes
+  → What was implemented
+  → Verification checklist
+
+
+┌──────────────────────────────────────────────────────────────────┐
+│ ⚙️ CUSTOMIZATION OPTIONS                                          │
+└──────────────────────────────────────────────────────────────────┘
+
+Leverage:
+  "Isolated (5X)"   → 5x leverage
+  "Isolated (10X)"  → 10x leverage
+  "Isolated (20X)"  → 20x leverage
+
+Position Size:
+  "1%"  → 1% of account per trade
+  "2%"  → 2% of account per trade
+  "5%"  → 5% of account per trade
+
+Tag:
+  "#SFP_SL"   → Smart Liquidity strategy
+  "#SCALP"    → Scalping
+  "#SWING"    → Swing trading
+  "#TEST"     → Testing
+
+
+┌──────────────────────────────────────────────────────────────────┐
+│ ✅ EXPECTED OUTPUT (Cornix Format)                                │
+└──────────────────────────────────────────────────────────────────┘
+
+⚡⚡ #BTCUSDT ⚡⚡
+Exchanges: Binance Futures
+Signal Type: Regular (Long)
+Leverage: Isolated (10X)
+
+Entry Zone:
+Buy at current price
+
+Take-Profit Targets:
+1) 93400
+2) 93520
+3) 93680
+4) 93850
+5) 94000
+
+Stop Targets:
+1) 82990
+
+Trailing Configuration:
+Entry: Percentage (0.5%)
+Take-Profit: Percentage (0.5%)
+Stop: Moving Target -
+Trigger: Target (1)
+
+🚀 TRADE SIGNAL
+─────────────────────
+Symbol: BTCUSDT
+Side: LONG
+Size: 1%
+Tag: #SFP_SL
+
+
+┌──────────────────────────────────────────────────────────────────┐
+│ 🔍 TROUBLESHOOTING                                                │
+└──────────────────────────────────────────────────────────────────┘
+
+Issue: "Invalid webhook data"
+Fix: Validate JSON at https://jsonlint.com
+
+Issue: "Missing required field: symbol"
+Fix: Ensure trade_signal.symbol exists in JSON
+
+Issue: Signal not appearing in Telegram
+Fix: Check TELEGRAM_BOT_TOKEN and TELEGRAM_CHANNEL_ID in .env
+
+Issue: Cornix not executing trade
+Fix: Verify Cornix bot is in your Telegram channel
+
+
+┌──────────────────────────────────────────────────────────────────┐
+│ 📊 MONITORING                                                     │
+└──────────────────────────────────────────────────────────────────┘
+
+Koyeb Logs:
+  https://app.koyeb.com/
+
+Health Check:
+  https://strange-dyanne-tradingbot12-29686213.koyeb.app/health
+
+API Status:
+  GET /api/stats     → Trading statistics
+  GET /api/signals   → Recent signals
+  GET /api/logs      → System logs
+
+
+┌──────────────────────────────────────────────────────────────────┐
+│ ✅ PRE-LAUNCH CHECKLIST                                           │
+└──────────────────────────────────────────────────────────────────┘
+
+□ Run test suite: node tests/test-new-tradingview-format.js
+□ All tests pass (4/4)
+□ Update TradingView alert with new JSON template
+□ Test webhook with .\tests\test-new-format.ps1
+□ Verify signal appears in Telegram
+□ Confirm Cornix format is correct
+□ Check Koyeb logs for any errors
+□ Test with small position size first
+□ Monitor first few trades closely
+
+
+┌──────────────────────────────────────────────────────────────────┐
+│ 🚀 YOU'RE READY!                                                  │
+└──────────────────────────────────────────────────────────────────┘
+
+Status: ✅ Implementation Complete
+Date: December 6, 2025
+
+Your TradingBot now supports the new TradingView format!
+Start by testing, then gradually transition your alerts.
+
+Happy Trading! 📈
+
+
+╔══════════════════════════════════════════════════════════════════╗
+║  For detailed documentation, see NEW_FORMAT_GUIDE.md             ║
+╚══════════════════════════════════════════════════════════════════╝

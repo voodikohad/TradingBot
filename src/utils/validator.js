@@ -5,6 +5,98 @@
 
 class Validator {
   /**
+   * Detects and normalizes the new TradingView JSON format
+   * Converts nested structure to flat structure compatible with existing handlers
+   * @param {Object} data - Raw webhook data (could be new or old format)
+   * @returns {Object} Normalized flat data structure
+   */
+  normalizeNewFormat(data) {
+    // Check if this is the new format (has trade_signal object)
+    if (data.trade_signal && data.trade_signal.symbol) {
+      const normalized = {
+        // Extract from trade_signal
+        symbol: data.trade_signal.symbol || data.pair,
+        side: data.trade_signal.side ? data.trade_signal.side.toLowerCase() : null,
+        size: parseFloat(data.trade_signal.size) || parseFloat(data.position_size),
+        size_type: 'percent', // The new format uses percentage
+        tag: data.trade_signal.tag || '#SFP_SL',
+        
+        // Extract action from signal_type
+        action: this.extractAction(data.signal_type),
+        
+        // Extract leverage (remove 'X' and 'Isolated' prefix)
+        leverage: this.extractLeverage(data.leverage),
+        
+        // Extract TP targets from nested object
+        tp1: data.take_profit_targets ? parseFloat(data.take_profit_targets['1']) : null,
+        tp2: data.take_profit_targets ? parseFloat(data.take_profit_targets['2']) : null,
+        tp3: data.take_profit_targets ? parseFloat(data.take_profit_targets['3']) : null,
+        tp4: data.take_profit_targets ? parseFloat(data.take_profit_targets['4']) : null,
+        tp5: data.take_profit_targets ? parseFloat(data.take_profit_targets['5']) : null,
+        
+        // Extract SL from stop_targets
+        sl: data.stop_targets ? parseFloat(data.stop_targets['1']) : null,
+        
+        // Store original format metadata
+        _original_format: 'new',
+        entry_type: data.entry_type,
+        exchange: data.exchange,
+        trailing_configuration: data.trailing_configuration
+      };
+      
+      // Remove null values
+      Object.keys(normalized).forEach(key => {
+        if (normalized[key] === null && !key.startsWith('_')) {
+          delete normalized[key];
+        }
+      });
+      
+      return normalized;
+    }
+    
+    // Old format, return as-is
+    return { ...data, _original_format: 'legacy' };
+  }
+
+  /**
+   * Extracts action type from signal_type string
+   * Examples: "Regular (Long)" -> "entry", "Regular (Short)" -> "entry"
+   * @param {string} signalType - Signal type from new format
+   * @returns {string} Action type (entry, sl, tp, exit)
+   */
+  extractAction(signalType) {
+    if (!signalType) return 'entry';
+    
+    const lower = signalType.toLowerCase();
+    if (lower.includes('long') || lower.includes('short')) {
+      return 'entry';
+    }
+    if (lower.includes('stop') || lower.includes('sl')) {
+      return 'sl';
+    }
+    if (lower.includes('take') || lower.includes('tp')) {
+      return 'tp';
+    }
+    return 'entry'; // Default to entry
+  }
+
+  /**
+   * Extracts numeric leverage from string format
+   * Examples: "Isolated (10X)" -> 10, "10X" -> 10, "10" -> 10
+   * @param {string|number} leverage - Leverage from new format
+   * @returns {number} Numeric leverage value
+   */
+  extractLeverage(leverage) {
+    if (!leverage) return null;
+    
+    if (typeof leverage === 'number') return leverage;
+    
+    // Extract number from strings like "Isolated (10X)" or "10X"
+    const match = leverage.toString().match(/(\d+)/);
+    return match ? parseInt(match[1]) : null;
+  }
+
+  /**
    * Validates TradingView webhook JSON structure
    * @param {Object} data - Raw webhook data
    * @returns {Object} { isValid: boolean, errors: Array, data: Object }
@@ -12,85 +104,88 @@ class Validator {
   validateWebhookData(data) {
     const errors = [];
 
+    // First, normalize the data if it's in the new format
+    const normalizedData = this.normalizeNewFormat(data);
+
     // Check required fields
-    if (!data.action) errors.push('Missing required field: action');
-    if (!data.side) errors.push('Missing required field: side');
-    if (!data.symbol) errors.push('Missing required field: symbol');
+    if (!normalizedData.action) errors.push('Missing required field: action');
+    if (!normalizedData.side) errors.push('Missing required field: side');
+    if (!normalizedData.symbol) errors.push('Missing required field: symbol');
     
     // For entry actions, require size and at least TP1 + SL
-    if (data.action === 'entry') {
-      if (data.size_type === undefined) errors.push('Missing required field: size_type (required for entry)');
-      if (data.size === undefined) errors.push('Missing required field: size (required for entry)');
+    if (normalizedData.action === 'entry') {
+      if (normalizedData.size_type === undefined) errors.push('Missing required field: size_type (required for entry)');
+      if (normalizedData.size === undefined) errors.push('Missing required field: size (required for entry)');
       // Cornix requires at least TP and SL in entry signals
-      if (!data.tp1 && !data.tp_1) errors.push('Missing required field: tp1 (at least TP1 is required for entry)');
-      if (!data.sl && !data.stop_loss) errors.push('Missing required field: sl (stop loss is required for entry)');
+      if (!normalizedData.tp1 && !normalizedData.tp_1) errors.push('Missing required field: tp1 (at least TP1 is required for entry)');
+      if (!normalizedData.sl && !normalizedData.stop_loss) errors.push('Missing required field: sl (stop loss is required for entry)');
     }
 
     // Validate field values
-    if (data.action && !['entry', 'sl', 'tp', 'exit'].includes(data.action)) {
-      errors.push(`Invalid action: ${data.action}. Must be: entry, sl, tp, or exit`);
+    if (normalizedData.action && !['entry', 'sl', 'tp', 'exit'].includes(normalizedData.action)) {
+      errors.push(`Invalid action: ${normalizedData.action}. Must be: entry, sl, tp, or exit`);
     }
 
-    if (data.side && !['long', 'short'].includes(data.side)) {
-      errors.push(`Invalid side: ${data.side}. Must be: long or short`);
+    if (normalizedData.side && !['long', 'short'].includes(normalizedData.side)) {
+      errors.push(`Invalid side: ${normalizedData.side}. Must be: long or short`);
     }
 
-    if (data.size_type && !['percent', 'usd'].includes(data.size_type)) {
-      errors.push(`Invalid size_type: ${data.size_type}. Must be: percent or usd`);
+    if (normalizedData.size_type && !['percent', 'usd'].includes(normalizedData.size_type)) {
+      errors.push(`Invalid size_type: ${normalizedData.size_type}. Must be: percent or usd`);
     }
 
     // Validate size is a positive number (if provided)
-    if (data.size !== undefined) {
-      const size = parseFloat(data.size);
+    if (normalizedData.size !== undefined) {
+      const size = parseFloat(normalizedData.size);
       if (isNaN(size) || size <= 0) {
-        errors.push(`Invalid size: ${data.size}. Must be a positive number`);
+        errors.push(`Invalid size: ${normalizedData.size}. Must be a positive number`);
       }
     }
 
     // Validate TP levels (if provided)
     ['tp1', 'tp_1', 'tp2', 'tp_2', 'tp3', 'tp_3', 'tp4', 'tp_4', 'tp5', 'tp_5'].forEach(field => {
-      if (data[field] !== undefined) {
-        const price = parseFloat(data[field]);
+      if (normalizedData[field] !== undefined) {
+        const price = parseFloat(normalizedData[field]);
         if (isNaN(price) || price <= 0) {
-          errors.push(`Invalid ${field}: ${data[field]}. Must be a positive number`);
+          errors.push(`Invalid ${field}: ${normalizedData[field]}. Must be a positive number`);
         }
       }
     });
 
     // Validate SL (if provided)
     ['sl', 'stop_loss'].forEach(field => {
-      if (data[field] !== undefined) {
-        const price = parseFloat(data[field]);
+      if (normalizedData[field] !== undefined) {
+        const price = parseFloat(normalizedData[field]);
         if (isNaN(price) || price <= 0) {
-          errors.push(`Invalid ${field}: ${data[field]}. Must be a positive number`);
+          errors.push(`Invalid ${field}: ${normalizedData[field]}. Must be a positive number`);
         }
       }
     });
 
     // Sanitize symbol - allow exchange prefix format (e.g., BYBIT:BTCUSDT.P)
     // Allowed: letters, numbers, colon, dot, dash, underscore
-    if (data.symbol && !/^[A-Z0-9:._-]+$/i.test(data.symbol)) {
-      errors.push(`Invalid symbol format: ${data.symbol}`);
+    if (normalizedData.symbol && !/^[A-Z0-9:._-]+$/i.test(normalizedData.symbol)) {
+      errors.push(`Invalid symbol format: ${normalizedData.symbol}`);
     }
 
     // Sanitize tag if provided (alphanumeric, dash, underscore, hash only)
-    if (data.tag && !/^[A-Z0-9_#-]+$/i.test(data.tag)) {
-      errors.push(`Invalid tag format: ${data.tag}`);
+    if (normalizedData.tag && !/^[A-Z0-9_#-]+$/i.test(normalizedData.tag)) {
+      errors.push(`Invalid tag format: ${normalizedData.tag}`);
     }
 
     // Validate tp_number for take-profit trigger actions (1-5)
-    if (data.action === 'tp' && data.tp_number !== undefined) {
-      const tpNum = parseInt(data.tp_number);
+    if (normalizedData.action === 'tp' && normalizedData.tp_number !== undefined) {
+      const tpNum = parseInt(normalizedData.tp_number);
       if (isNaN(tpNum) || tpNum < 1 || tpNum > 5) {
-        errors.push(`Invalid tp_number: ${data.tp_number}. Must be between 1 and 5`);
+        errors.push(`Invalid tp_number: ${normalizedData.tp_number}. Must be between 1 and 5`);
       }
     }
 
     // Validate leverage (if provided)
-    if (data.leverage !== undefined) {
-      const lev = parseFloat(data.leverage);
+    if (normalizedData.leverage !== undefined) {
+      const lev = parseFloat(normalizedData.leverage);
       if (isNaN(lev) || lev < 1 || lev > 125) {
-        errors.push(`Invalid leverage: ${data.leverage}. Must be between 1 and 125`);
+        errors.push(`Invalid leverage: ${normalizedData.leverage}. Must be between 1 and 125`);
       }
     }
 
@@ -104,36 +199,50 @@ class Validator {
 
     // Sanitize and return cleaned data
     const sanitized = {
-      action: data.action.toLowerCase(),
-      side: data.side.toLowerCase(),
-      symbol: data.symbol.toUpperCase(),
-      tag: data.tag ? this.sanitizeTag(data.tag) : null
+      action: normalizedData.action.toLowerCase(),
+      side: normalizedData.side.toLowerCase(),
+      symbol: normalizedData.symbol.toUpperCase(),
+      tag: normalizedData.tag ? this.sanitizeTag(normalizedData.tag) : null
     };
 
     // Add optional fields only if present
-    if (data.size_type !== undefined) {
-      sanitized.size_type = data.size_type.toLowerCase();
+    if (normalizedData.size_type !== undefined) {
+      sanitized.size_type = normalizedData.size_type.toLowerCase();
     }
-    if (data.size !== undefined) {
-      sanitized.size = parseFloat(data.size);
+    if (normalizedData.size !== undefined) {
+      sanitized.size = parseFloat(normalizedData.size);
     }
-    if (data.tp_number !== undefined) {
-      sanitized.tp_number = parseInt(data.tp_number);
+    if (normalizedData.tp_number !== undefined) {
+      sanitized.tp_number = parseInt(normalizedData.tp_number);
     }
-    if (data.leverage !== undefined) {
-      sanitized.leverage = parseFloat(data.leverage);
+    if (normalizedData.leverage !== undefined) {
+      sanitized.leverage = parseFloat(normalizedData.leverage);
     }
 
     // Add TP levels (support both tp1 and tp_1 formats)
-    if (data.tp1 || data.tp_1) sanitized.tp1 = parseFloat(data.tp1 || data.tp_1);
-    if (data.tp2 || data.tp_2) sanitized.tp2 = parseFloat(data.tp2 || data.tp_2);
-    if (data.tp3 || data.tp_3) sanitized.tp3 = parseFloat(data.tp3 || data.tp_3);
-    if (data.tp4 || data.tp_4) sanitized.tp4 = parseFloat(data.tp4 || data.tp_4);
-    if (data.tp5 || data.tp_5) sanitized.tp5 = parseFloat(data.tp5 || data.tp_5);
+    if (normalizedData.tp1 || normalizedData.tp_1) sanitized.tp1 = parseFloat(normalizedData.tp1 || normalizedData.tp_1);
+    if (normalizedData.tp2 || normalizedData.tp_2) sanitized.tp2 = parseFloat(normalizedData.tp2 || normalizedData.tp_2);
+    if (normalizedData.tp3 || normalizedData.tp_3) sanitized.tp3 = parseFloat(normalizedData.tp3 || normalizedData.tp_3);
+    if (normalizedData.tp4 || normalizedData.tp_4) sanitized.tp4 = parseFloat(normalizedData.tp4 || normalizedData.tp_4);
+    if (normalizedData.tp5 || normalizedData.tp_5) sanitized.tp5 = parseFloat(normalizedData.tp5 || normalizedData.tp_5);
 
     // Add SL (support both sl and stop_loss formats)
-    if (data.sl || data.stop_loss) {
-      sanitized.sl = parseFloat(data.sl || data.stop_loss);
+    if (normalizedData.sl || normalizedData.stop_loss) {
+      sanitized.sl = parseFloat(normalizedData.sl || normalizedData.stop_loss);
+    }
+    
+    // Preserve metadata from new format
+    if (normalizedData._original_format) {
+      sanitized._original_format = normalizedData._original_format;
+    }
+    if (normalizedData.entry_type) {
+      sanitized.entry_type = normalizedData.entry_type;
+    }
+    if (normalizedData.exchange) {
+      sanitized.exchange = normalizedData.exchange;
+    }
+    if (normalizedData.trailing_configuration) {
+      sanitized.trailing_configuration = normalizedData.trailing_configuration;
     }
 
     return {

@@ -33,42 +33,79 @@ class CornixFormatter {
    */
   formatEntryCommand(data) {
     try {
-      const { symbol, side, leverage, tp1, tp2, tp3, tp4, tp5, sl, tag } = data;
+      const { symbol, side, leverage, tp1, tp2, tp3, tp4, tp5, sl, tag, exchange, entry_type } = data;
 
       // Parse clean symbol for Cornix
       const cleanSymbol = this.parseSymbol(symbol);
 
-      // Build Cornix signal format
+      // Build comprehensive Cornix signal format
       const lines = [];
       
-      // Tag (optional, but recommended)
-      if (tag) {
-        lines.push(tag);
+      // Header with emojis
+      lines.push(`⚡⚡ #${cleanSymbol} ⚡⚡`);
+      
+      // Exchange info
+      if (exchange) {
+        lines.push(`Exchanges: ${exchange}`);
+      } else {
+        lines.push(`Exchanges: Binance Futures`);
       }
       
-      // Pair
-      lines.push(`Pair: ${cleanSymbol}`);
-      
-      // Action (Long/Short)
-      lines.push(`Action: ${side.charAt(0).toUpperCase() + side.slice(1)}`);
+      // Signal Type
+      const signalType = `Regular (${side.charAt(0).toUpperCase() + side.slice(1)})`;
+      lines.push(`Signal Type: ${signalType}`);
       
       // Leverage (optional)
       if (leverage) {
-        lines.push(`Leverage: ${leverage}x`);
+        lines.push(`Leverage: Isolated (${leverage}X)`);
       }
       
-      // Entry
-      lines.push(`Entry: Market`);
+      lines.push(''); // Empty line
       
-      // TP levels (at least TP1 is required)
-      if (tp1) lines.push(`TP1: ${tp1}`);
-      if (tp2) lines.push(`TP2: ${tp2}`);
-      if (tp3) lines.push(`TP3: ${tp3}`);
-      if (tp4) lines.push(`TP4: ${tp4}`);
-      if (tp5) lines.push(`TP5: ${tp5}`);
+      // Entry Zone
+      lines.push(`Entry Zone:`);
+      if (entry_type) {
+        lines.push(entry_type);
+      } else {
+        lines.push(`Buy at current price`);
+      }
       
-      // Stop Loss (required)
-      if (sl) lines.push(`Stop Loss: ${sl}`);
+      lines.push(''); // Empty line
+      
+      // Take-Profit Targets
+      lines.push(`Take-Profit Targets:`);
+      if (tp1) lines.push(`1) ${tp1}`);
+      if (tp2) lines.push(`2) ${tp2}`);
+      if (tp3) lines.push(`3) ${tp3}`);
+      if (tp4) lines.push(`4) ${tp4}`);
+      if (tp5) lines.push(`5) ${tp5}`);
+      
+      lines.push(''); // Empty line
+      
+      // Stop Targets
+      lines.push(`Stop Targets:`);
+      if (sl) lines.push(`1) ${sl}`);
+      
+      lines.push(''); // Empty line
+      
+      // Trailing Configuration
+      lines.push(`Trailing Configuration:`);
+      lines.push(`Entry: Percentage (0.5%)`);
+      lines.push(`Take-Profit: Percentage (0.5%)`);
+      lines.push(`Stop: Moving Target -`);
+      lines.push(`Trigger: Target (1)`);
+      
+      lines.push(''); // Empty line
+      
+      // Trade Signal section
+      lines.push(`🚀 TRADE SIGNAL`);
+      lines.push(`─────────────────────`);
+      lines.push(`Symbol: ${cleanSymbol}`);
+      lines.push(`Side: ${side.toUpperCase()}`);
+      lines.push(`Size: ${data.size}%`);
+      if (tag) {
+        lines.push(`Tag: ${tag}`);
+      }
 
       const command = lines.join('\n');
 
