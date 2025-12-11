@@ -11,6 +11,49 @@ class Validator {
    * @returns {Object} Normalized flat data structure
    */
   normalizeNewFormat(data) {
+    // Check if this is the array-based format (has trade object and arrays)
+    if (data.trade && data.trade.side && Array.isArray(data.take_profit_targets)) {
+      const normalized = {
+        // Extract from trade object
+        symbol: data.symbol || data.pair?.replace('/', ''),
+        side: data.trade.side ? data.trade.side.toLowerCase() : (data.position ? data.position.toLowerCase() : null),
+        size: parseFloat(data.trade.size) || 1,
+        size_type: 'percent',
+        tag: data.trade.tag ? (data.trade.tag.startsWith('#') ? data.trade.tag : '#' + data.trade.tag) : '#SFP_SL',
+        
+        // Extract action from signal_type and position
+        action: 'entry', // Array format is always entry
+        
+        // Extract leverage from nested object or string
+        leverage: this.extractLeverageFromObject(data.leverage),
+        
+        // Extract TP targets from array
+        tp1: data.take_profit_targets[0] ? parseFloat(data.take_profit_targets[0].price) : null,
+        tp2: data.take_profit_targets[1] ? parseFloat(data.take_profit_targets[1].price) : null,
+        tp3: data.take_profit_targets[2] ? parseFloat(data.take_profit_targets[2].price) : null,
+        tp4: data.take_profit_targets[3] ? parseFloat(data.take_profit_targets[3].price) : null,
+        tp5: data.take_profit_targets[4] ? parseFloat(data.take_profit_targets[4].price) : null,
+        
+        // Extract SL from array
+        sl: data.stop_targets && data.stop_targets[0] ? parseFloat(data.stop_targets[0].price) : null,
+        
+        // Store original format metadata
+        _original_format: 'array',
+        entry: data.entry,
+        exchange: data.exchange,
+        trailing_configuration: data.trailing_configuration
+      };
+      
+      // Remove null and NaN values
+      Object.keys(normalized).forEach(key => {
+        if ((normalized[key] === null || (typeof normalized[key] === 'number' && isNaN(normalized[key]))) && !key.startsWith('_')) {
+          delete normalized[key];
+        }
+      });
+      
+      return normalized;
+    }
+    
     // Check if this is the new format (has trade_signal object)
     if (data.trade_signal && data.trade_signal.symbol) {
       const normalized = {
@@ -94,6 +137,32 @@ class Validator {
     // Extract number from strings like "Isolated (10X)" or "10X"
     const match = leverage.toString().match(/(\d+)/);
     return match ? parseInt(match[1]) : null;
+  }
+
+  /**
+   * Extracts numeric leverage from object format
+   * Examples: {type: "Isolated", value: "10X"} -> 10
+   * @param {Object|string|number} leverage - Leverage from array format
+   * @returns {number} Numeric leverage value
+   */
+  extractLeverageFromObject(leverage) {
+    if (!leverage) return null;
+    
+    if (typeof leverage === 'number') return leverage;
+    
+    // Handle object format: {type: "Isolated", value: "10X"}
+    if (typeof leverage === 'object' && leverage.value) {
+      const match = leverage.value.toString().match(/(\d+)/);
+      return match ? parseInt(match[1]) : null;
+    }
+    
+    // Handle string format
+    if (typeof leverage === 'string') {
+      const match = leverage.match(/(\d+)/);
+      return match ? parseInt(match[1]) : null;
+    }
+    
+    return null;
   }
 
   /**
