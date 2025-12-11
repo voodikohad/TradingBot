@@ -27,15 +27,15 @@ class Validator {
         // Extract leverage (remove 'X' and 'Isolated' prefix)
         leverage: this.extractLeverage(data.leverage),
         
-        // Extract TP targets from nested object
-        tp1: data.take_profit_targets ? parseFloat(data.take_profit_targets['1']) : null,
-        tp2: data.take_profit_targets ? parseFloat(data.take_profit_targets['2']) : null,
-        tp3: data.take_profit_targets ? parseFloat(data.take_profit_targets['3']) : null,
-        tp4: data.take_profit_targets ? parseFloat(data.take_profit_targets['4']) : null,
-        tp5: data.take_profit_targets ? parseFloat(data.take_profit_targets['5']) : null,
+        // Extract TP targets from nested object (only if they exist)
+        tp1: data.take_profit_targets && data.take_profit_targets['1'] !== undefined ? parseFloat(data.take_profit_targets['1']) : null,
+        tp2: data.take_profit_targets && data.take_profit_targets['2'] !== undefined ? parseFloat(data.take_profit_targets['2']) : null,
+        tp3: data.take_profit_targets && data.take_profit_targets['3'] !== undefined ? parseFloat(data.take_profit_targets['3']) : null,
+        tp4: data.take_profit_targets && data.take_profit_targets['4'] !== undefined ? parseFloat(data.take_profit_targets['4']) : null,
+        tp5: data.take_profit_targets && data.take_profit_targets['5'] !== undefined ? parseFloat(data.take_profit_targets['5']) : null,
         
         // Extract SL from stop_targets
-        sl: data.stop_targets ? parseFloat(data.stop_targets['1']) : null,
+        sl: data.stop_targets && data.stop_targets['1'] !== undefined ? parseFloat(data.stop_targets['1']) : null,
         
         // Store original format metadata
         _original_format: 'new',
@@ -44,9 +44,9 @@ class Validator {
         trailing_configuration: data.trailing_configuration
       };
       
-      // Remove null values
+      // Remove null and NaN values
       Object.keys(normalized).forEach(key => {
-        if (normalized[key] === null && !key.startsWith('_')) {
+        if ((normalized[key] === null || (typeof normalized[key] === 'number' && isNaN(normalized[key]))) && !key.startsWith('_')) {
           delete normalized[key];
         }
       });
@@ -142,9 +142,9 @@ class Validator {
       }
     }
 
-    // Validate TP levels (if provided)
+    // Validate TP levels (only if they exist in the data)
     ['tp1', 'tp_1', 'tp2', 'tp_2', 'tp3', 'tp_3', 'tp4', 'tp_4', 'tp5', 'tp_5'].forEach(field => {
-      if (normalizedData[field] !== undefined) {
+      if (normalizedData.hasOwnProperty(field) && normalizedData[field] !== undefined && normalizedData[field] !== null) {
         const price = parseFloat(normalizedData[field]);
         if (isNaN(price) || price <= 0) {
           errors.push(`Invalid ${field}: ${normalizedData[field]}. Must be a positive number`);
@@ -168,8 +168,8 @@ class Validator {
       errors.push(`Invalid symbol format: ${normalizedData.symbol}`);
     }
 
-    // Sanitize tag if provided (alphanumeric, dash, underscore, hash only)
-    if (normalizedData.tag && !/^[A-Z0-9_#-]+$/i.test(normalizedData.tag)) {
+    // Sanitize tag if provided (alphanumeric, dash, underscore, hash, dot, and space allowed)
+    if (normalizedData.tag && !/^[A-Z0-9_#\-. ]+$/i.test(normalizedData.tag)) {
       errors.push(`Invalid tag format: ${normalizedData.tag}`);
     }
 
